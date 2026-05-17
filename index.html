@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>克拉茨猜想 · Collatz Conjecture 可视化</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+    </script>
     <style>
-        /* 样式保持不变（同上一个版本的完整样式） */
         :root {
             --bg-deep: #06080f;
             --bg-card: rgba(14, 16, 28, 0.75);
@@ -88,10 +88,7 @@
             line-height: 1;
         }
         @keyframes floatIcon {
-            0%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-14px); }
-            60% { transform: translateY(-5px); }
-            85% { transform: translateY(-10px); }
+            0%, 100% { transform: translateY(0); } 30% { transform: translateY(-14px); } 60% { transform: translateY(-5px); } 85% { transform: translateY(-10px); }
         }
         .header h1 {
             font-family: var(--font-mono);
@@ -174,6 +171,41 @@
             font-family: var(--font-mono);
             pointer-events: none;
             letter-spacing: 0.04em;
+        }
+
+        /* 新增：动画时长输入组 */
+        .duration-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 150px;
+        }
+        .duration-wrapper label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            letter-spacing: 0.04em;
+            white-space: nowrap;
+        }
+        .duration-wrapper input {
+            width: 70px;
+            padding: 10px 12px;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            background: rgba(8, 10, 20, 0.7);
+            border: 1.5px solid rgba(120, 160, 210, 0.35);
+            border-radius: var(--radius-sm);
+            color: #e0e8f8;
+            outline: none;
+            text-align: center;
+            transition: var(--transition-fast);
+        }
+        .duration-wrapper input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 18px rgba(0, 200, 255, 0.15);
+        }
+        .duration-wrapper .unit {
+            font-size: 0.7rem;
+            color: var(--text-dim);
         }
 
         .btn {
@@ -353,7 +385,7 @@
 
         @media (max-width: 640px) {
             .input-section { flex-direction: column; gap: 10px; padding: 14px 16px; }
-            .input-wrapper { max-width: 100%; min-width: auto; }
+            .input-wrapper, .duration-wrapper { max-width: 100%; min-width: auto; width: 100%; }
             .btn { width: 100%; text-align: center; padding: 13px 18px; }
             .stats-bar { gap: 8px; }
             .stat-card { padding: 10px 12px; min-width: 60px; }
@@ -397,6 +429,12 @@
             <div class="input-wrapper">
                 <input type="number" id="numberInput" placeholder="输入一个正整数" min="1" max="1000000000000" step="1" autocomplete="off">
                 <span class="input-hint">n ≥ 1</span>
+            </div>
+            <!-- 新增：动画时长设置 -->
+            <div class="duration-wrapper">
+                <label for="durationInput">⏱️ 动画</label>
+                <input type="number" id="durationInput" value="10" min="1" max="60" step="0.5">
+                <span class="unit">秒</span>
             </div>
             <button class="btn btn-generate" id="btnGenerate">
                 <span class="btn-icon">⚡</span>生成曲线
@@ -452,6 +490,7 @@
             const particlesCanvas = document.getElementById('particles-canvas');
             const particlesCtx = particlesCanvas.getContext('2d');
             const numberInput = document.getElementById('numberInput');
+            const durationInput = document.getElementById('durationInput'); // 新增：时长输入框
             const btnGenerate = document.getElementById('btnGenerate');
             const btnFavorite = document.getElementById('btnFavorite');
             const chartPlaceholder = document.getElementById('chartPlaceholder');
@@ -478,9 +517,8 @@
             let currentFavId = null;
             let favorites = [];
             let toastTimer = null;
-            // 动画相关
-            let animFrameId = null;          // requestAnimationFrame ID
-            let animCancelFlag = false;     // 取消标志
+            let animFrameId = null;
+            let animCancelFlag = false;
 
             // 粒子系统 (保持不变)
             let particles = [];
@@ -581,7 +619,6 @@
             }, { passive: true });
             window.addEventListener('touchend', () => { mouseX = -999; mouseY = -999; });
 
-            // Toast
             function showToast(message, type = '') {
                 if (toastTimer) clearTimeout(toastTimer);
                 toast.textContent = message;
@@ -592,7 +629,6 @@
                 }, 2200);
             }
 
-            // 模态弹窗
             function showModal(subtitle, callback) {
                 modalSubtitle.textContent = subtitle;
                 modalInput.value = '';
@@ -614,7 +650,6 @@
                 modalOverlay.onclick = null;
             }
 
-            // 克拉茨序列计算
             function computeCollatzSequence(n) {
                 const MAX_STEPS = 2000;
                 const sequence = [n];
@@ -653,19 +688,24 @@
                 };
             }
 
-            // 缓动函数 (easeOutCubic)
             function easeOutCubic(t) {
                 return 1 - Math.pow(1 - t, 3);
             }
 
-            // 图表绘制与动画
+            // 获取用户设置的动画时长（秒），返回毫秒数，默认10秒
+            function getAnimationDuration() {
+                let seconds = parseFloat(durationInput.value);
+                if (isNaN(seconds) || seconds < 1) seconds = 10; // 默认10秒
+                if (seconds > 60) seconds = 60;
+                return seconds * 1000;
+            }
+
             function renderChart(sequence, favColorIndex = -1) {
-                // 取消之前的动画
                 if (animFrameId) {
                     cancelAnimationFrame(animFrameId);
                     animFrameId = null;
                 }
-                animCancelFlag = true; // 标记取消，新动画启动时会重置
+                animCancelFlag = true;
 
                 const validSeq = sequence.filter(v => v !== null);
                 if (validSeq.length === 0) return;
@@ -676,7 +716,6 @@
                 const lineColor = (['rgba(0,200,240,0.9)','rgba(100,180,255,0.9)','rgba(140,120,255,0.9)','rgba(200,100,220,0.9)','rgba(60,220,180,0.9)'])[colorIdx];
                 const fillColor = (['rgba(0,180,220,0.35)','rgba(80,160,240,0.35)','rgba(120,100,240,0.35)','rgba(180,80,200,0.35)','rgba(40,200,160,0.35)'])[colorIdx];
 
-                // 销毁旧图表
                 if (collatzChart) {
                     collatzChart.destroy();
                     collatzChart = null;
@@ -684,7 +723,6 @@
                 chartCanvas.style.display = 'block';
                 chartPlaceholder.classList.add('hidden');
 
-                // 初始创建图表，数据集为空数组（但保留标签结构以便后续更新）
                 const labels = Array.from({ length: totalLength }, (_, i) => i);
                 collatzChart = new Chart(chartCtx, {
                     type: 'line',
@@ -692,7 +730,7 @@
                         labels: labels,
                         datasets: [{
                             label: `Collatz(${stats.startNumber})`,
-                            data: [],  // 初始为空，动画逐步填充
+                            data: [],
                             borderColor: lineColor,
                             backgroundColor: function(context) {
                                 const chart = context.chart;
@@ -718,13 +756,10 @@
                         responsive: true,
                         maintainAspectRatio: true,
                         aspectRatio: 2.2,
-                        animation: false, // 禁用 Chart.js 内置动画，由我们手动控制
+                        animation: false,
                         interaction: { mode: 'index', intersect: false },
                         plugins: {
-                            legend: {
-                                display: true,
-                                labels: { color: '#b0b8d0', font: { family: "'SF Mono','Consolas','Monaco',monospace", size: 12 }, usePointStyle: true, pointStyleWidth: 8, padding: 20 }
-                            },
+                            legend: { display: true, labels: { color: '#b0b8d0', font: { family: "'SF Mono','Consolas','Monaco',monospace", size: 12 }, usePointStyle: true, pointStyleWidth: 8, padding: 20 } },
                             tooltip: {
                                 backgroundColor: 'rgba(10,14,28,0.9)',
                                 titleColor: '#d0d8f0',
@@ -782,15 +817,14 @@
                     }]
                 });
 
-                // 更新统计信息（立即显示最终值）
                 updateStats(stats);
                 statsBar.style.display = 'flex';
                 btnFavorite.disabled = false;
 
-                // 启动逐点描画动画
+                // 启动动画，使用用户设定的时长
                 animCancelFlag = false;
                 const startTime = performance.now();
-                const duration = 15000; // 15秒
+                const duration = getAnimationDuration(); // 关键修改：从输入框获取动画时长（毫秒）
 
                 function animateStep(now) {
                     if (animCancelFlag) {
@@ -800,27 +834,21 @@
                     const elapsed = now - startTime;
                     const rawProgress = Math.min(elapsed / duration, 1);
                     const progress = easeOutCubic(rawProgress);
-                    // 计算当前应显示的数据点数量（至少1个点）
                     let count = Math.floor(progress * totalLength);
                     if (count < 1) count = 1;
                     if (count > totalLength) count = totalLength;
 
-                    // 更新图表数据
                     const dataset = collatzChart.data.datasets[0];
                     const partialData = validSeq.slice(0, count);
                     dataset.data = partialData;
 
-                    // 动态调整点的大小和颜色
-                    const pointRadius = [];
-                    const pointBg = [];
-                    const pointBorder = [];
-                    const hoverRadius = [];
                     let baseRadius = 3;
                     if (totalLength > 500) baseRadius = 0;
                     else if (totalLength > 200) baseRadius = 1;
                     else if (totalLength > 80) baseRadius = 1.5;
                     else baseRadius = 2.5;
 
+                    const pointRadius = [], pointBg = [], pointBorder = [], hoverRadius = [];
                     for (let i = 0; i < partialData.length; i++) {
                         const v = partialData[i];
                         if (v === stats.maxValue && i === stats.maxStep) {
@@ -840,18 +868,13 @@
                     dataset.pointBorderColor = pointBorder;
                     dataset.pointHoverRadius = hoverRadius;
 
-                    collatzChart.update('none'); // 静默更新，不触发动画
+                    collatzChart.update('none');
 
                     if (rawProgress < 1) {
                         animFrameId = requestAnimationFrame(animateStep);
                     } else {
-                        // 动画结束，确保数据完整
                         dataset.data = validSeq;
-                        // 重新设置最终的点样式
-                        const finalRadius = [];
-                        const finalBg = [];
-                        const finalBorder = [];
-                        const finalHover = [];
+                        const finalRadius = [], finalBg = [], finalBorder = [], finalHover = [];
                         for (let i = 0; i < validSeq.length; i++) {
                             const v = validSeq[i];
                             if (v === stats.maxValue && i === stats.maxStep) {
@@ -905,7 +928,6 @@
                 updateFavCardsHighlight();
             }
 
-            // 收藏管理 (保持不变)
             function loadFavorites() {
                 try {
                     const data = localStorage.getItem('collatz-favorites');
@@ -1051,6 +1073,8 @@
             btnGenerate.addEventListener('click', handleGenerate);
             btnFavorite.addEventListener('click', handleFavorite);
             numberInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleGenerate(); } });
+            // 时长输入框也可以支持回车生成
+            durationInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleGenerate(); } });
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') closeModal();
                 if (e.ctrlKey && e.key === 'Enter' && !btnFavorite.disabled) { e.preventDefault(); handleFavorite(); }
@@ -1064,6 +1088,8 @@
                 loadFavorites();
                 renderFavorites();
                 numberInput.value = '27';
+                // 确保时长输入框显示默认值10
+                durationInput.value = '10';
                 handleGenerate();
             }
 
