@@ -1,0 +1,3183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>克拉茨猜想 · Collatz Conjecture 可视化</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+    </script>
+    <style>
+        :root {
+            --bg-deep: #06080f;
+            --bg-card: rgba(14, 16, 28, 0.75);
+            --border-glow: rgba(100, 180, 255, 0.35);
+            --accent-cyan: #00d4ff;
+            --accent-purple: #b347ea;
+            --accent-gold: #f0a840;
+            --accent-pink: #ff5e99;
+            --accent-green: #3dfcb4;
+            --text-primary: #e8e8f0;
+            --text-secondary: #a0a8c0;
+            --text-dim: #5a6078;
+            --shadow-glow-cyan: 0 0 30px rgba(0, 180, 255, 0.25), 0 0 60px rgba(0, 160, 240, 0.10);
+            --shadow-glow-purple: 0 0 30px rgba(160, 60, 240, 0.25), 0 0 60px rgba(140, 40, 220, 0.10);
+            --shadow-glow-gold: 0 0 20px rgba(240, 160, 50, 0.30), 0 0 40px rgba(220, 140, 30, 0.12);
+            --font-mono: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
+            --font-sans: 'Inter', 'SF Pro Display', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            --radius-lg: 20px;
+            --radius-md: 14px;
+            --radius-sm: 10px;
+            --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-smooth: 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+            --transition-bounce: 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg-deep);
+            font-family: var(--font-sans);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            cursor: default;
+            user-select: none;
+        }
+
+        /* ============ 粒子背景 ============ */
+        #particles-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.85;
+        }
+
+        /* ============ 主容器 ============ */
+        .main-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+            padding: 10px 0 40px;
+        }
+
+        /* ============ 标题区域 ============ */
+        .header {
+            text-align: center;
+            padding: 10px 0 6px;
+        }
+        .header .logo-icon {
+            display: inline-block;
+            font-size: 3rem;
+            animation: floatIcon 3.5s ease-in-out infinite;
+            filter: drop-shadow(0 0 18px rgba(160, 200, 255, 0.5));
+            line-height: 1;
+        }
+        @keyframes floatIcon {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+            30% {
+                transform: translateY(-14px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+            85% {
+                transform: translateY(-10px);
+            }
+        }
+        .header h1 {
+            font-family: var(--font-mono);
+            font-size: clamp(1.6rem, 3.5vw, 2.3rem);
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            background: linear-gradient(135deg, #c8e6ff 0%, #8ec5fc 30%, #b98df7 60%, #7dd3fc 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 4px 0 2px;
+            text-shadow: none;
+            filter: drop-shadow(0 0 12px rgba(150, 180, 240, 0.4));
+        }
+        .header .subtitle {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            letter-spacing: 0.08em;
+            font-weight: 400;
+            opacity: 0.75;
+            font-family: var(--font-mono);
+        }
+
+        /* ============ 输入区域 ============ */
+        .input-section {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            background: var(--bg-card);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--border-glow);
+            border-radius: var(--radius-lg);
+            padding: 18px 22px;
+            box-shadow: var(--shadow-glow-cyan), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            transition: var(--transition-smooth);
+        }
+        .input-section:focus-within {
+            border-color: rgba(140, 200, 255, 0.6);
+            box-shadow: var(--shadow-glow-cyan), 0 0 50px rgba(0, 180, 255, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+        .input-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 180px;
+            max-width: 320px;
+        }
+        .input-wrapper input {
+            width: 100%;
+            padding: 14px 18px;
+            font-size: 1.05rem;
+            font-family: var(--font-mono);
+            font-weight: 500;
+            letter-spacing: 0.03em;
+            background: rgba(8, 10, 20, 0.7);
+            border: 1.5px solid rgba(120, 160, 210, 0.35);
+            border-radius: var(--radius-md);
+            color: #e0e8f8;
+            outline: none;
+            transition: var(--transition-fast);
+            caret-color: var(--accent-cyan);
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
+        }
+        .input-wrapper input::placeholder {
+            color: var(--text-dim);
+            font-weight: 400;
+            letter-spacing: 0.02em;
+        }
+        .input-wrapper input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 22px rgba(0, 200, 255, 0.18);
+        }
+        .input-hint {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            font-family: var(--font-mono);
+            pointer-events: none;
+            letter-spacing: 0.04em;
+        }
+
+        /* 按钮 */
+        .btn {
+            padding: 13px 26px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            font-family: var(--font-sans);
+            letter-spacing: 0.04em;
+            border-radius: var(--radius-md);
+            border: none;
+            cursor: pointer;
+            transition: var(--transition-bounce);
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+            outline: none;
+        }
+        .btn:active {
+            transform: scale(0.94);
+            transition: 0.08s ease;
+        }
+        .btn-generate {
+            background: linear-gradient(135deg, #1a5f8a 0%, #1b3d6b 40%, #1e2a5e 100%);
+            color: #d8f0ff;
+            border: 1.5px solid rgba(80, 180, 240, 0.5);
+            box-shadow: 0 4px 18px rgba(0, 140, 220, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            letter-spacing: 0.06em;
+        }
+        .btn-generate:hover {
+            background: linear-gradient(135deg, #1e6ea0 0%, #1f4878 40%, #243268 100%);
+            border-color: rgba(100, 210, 255, 0.7);
+            box-shadow: 0 6px 28px rgba(0, 160, 240, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            color: #fff;
+        }
+        .btn-generate:active {
+            transform: scale(0.94);
+            box-shadow: 0 2px 8px rgba(0, 120, 200, 0.3);
+        }
+        .btn-favorite {
+            background: linear-gradient(135deg, #3d1f5c 0%, #2a1840 50%, #1e1030 100%);
+            color: #e8d0ff;
+            border: 1.5px solid rgba(180, 100, 240, 0.45);
+            box-shadow: 0 4px 18px rgba(140, 60, 220, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+            letter-spacing: 0.05em;
+        }
+        .btn-favorite:hover {
+            background: linear-gradient(135deg, #4a2570 0%, #331d50 50%, #26153d 100%);
+            border-color: rgba(200, 130, 255, 0.65);
+            box-shadow: 0 6px 28px rgba(150, 70, 230, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+            color: #fff;
+        }
+        .btn-favorite:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            pointer-events: none;
+            filter: grayscale(30%);
+        }
+        .btn-icon {
+            display: inline-block;
+            margin-right: 5px;
+            font-size: 1.1em;
+            vertical-align: -1px;
+        }
+
+        /* ============ 图表区域 ============ */
+        .chart-section {
+            background: var(--bg-card);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--border-glow);
+            border-radius: var(--radius-lg);
+            padding: 16px 12px 8px;
+            box-shadow: var(--shadow-glow-purple), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            position: relative;
+            transition: var(--transition-smooth);
+            min-height: 380px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .chart-section canvas {
+            width: 100% !important;
+            height: auto !important;
+            max-height: 460px;
+            filter: drop-shadow(0 0 6px rgba(120, 180, 240, 0.3));
+            transition: filter 0.5s ease;
+        }
+        .chart-placeholder {
+            text-align: center;
+            color: var(--text-dim);
+            font-family: var(--font-mono);
+            pointer-events: none;
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            opacity: 0.7;
+            transition: opacity 0.5s ease;
+        }
+        .chart-placeholder .placeholder-icon {
+            font-size: 3.5rem;
+            animation: floatIcon 4s ease-in-out infinite;
+            filter: drop-shadow(0 0 20px rgba(120, 160, 220, 0.4));
+        }
+        .chart-placeholder .placeholder-text {
+            font-size: 0.9rem;
+            letter-spacing: 0.05em;
+        }
+        .chart-placeholder.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* ============ 统计信息栏 ============ */
+        .stats-bar {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            justify-content: center;
+            transition: var(--transition-smooth);
+        }
+        .stat-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(120, 170, 220, 0.3);
+            border-radius: var(--radius-sm);
+            padding: 14px 20px;
+            text-align: center;
+            min-width: 90px;
+            flex: 1;
+            max-width: 180px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+            transition: var(--transition-fast);
+        }
+        .stat-card:hover {
+            border-color: rgba(160, 200, 240, 0.55);
+            box-shadow: 0 4px 20px rgba(0, 140, 220, 0.2);
+        }
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            background: linear-gradient(135deg, #b8e0ff, #c5b0f8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        /* ============ 收藏区域 ============ */
+        .favorites-section {
+            background: var(--bg-card);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--border-glow);
+            border-radius: var(--radius-lg);
+            padding: 18px 18px 14px;
+            box-shadow: var(--shadow-glow-gold), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            transition: var(--transition-smooth);
+        }
+        .favorites-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .favorites-title {
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            color: #d0c8e8;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .favorites-title .star-icon {
+            font-size: 1.2rem;
+            animation: twinkle 2s ease-in-out infinite;
+        }
+        @keyframes twinkle {
+            0%,
+            100% {
+                opacity: 0.7;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.25);
+            }
+        }
+        .favorites-count {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            font-family: var(--font-mono);
+            letter-spacing: 0.04em;
+        }
+        .favorites-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+            gap: 10px;
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 4px;
+            scroll-behavior: smooth;
+        }
+        .favorites-grid::-webkit-scrollbar {
+            width: 4px;
+        }
+        .favorites-grid::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 4px;
+        }
+        .favorites-grid::-webkit-scrollbar-thumb {
+            background: rgba(120, 160, 210, 0.3);
+            border-radius: 4px;
+        }
+        .favorites-grid::-webkit-scrollbar-thumb:hover {
+            background: rgba(150, 190, 240, 0.5);
+        }
+        .fav-card {
+            background: rgba(18, 20, 35, 0.7);
+            border: 1.5px solid rgba(100, 140, 200, 0.25);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            cursor: pointer;
+            transition: var(--transition-bounce);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        }
+        .fav-card:hover {
+            border-color: rgba(180, 200, 240, 0.55);
+            box-shadow: 0 6px 22px rgba(100, 150, 220, 0.22);
+            transform: translateY(-3px);
+            background: rgba(24, 28, 44, 0.8);
+        }
+        .fav-card.active {
+            border-color: var(--accent-gold) !important;
+            box-shadow: 0 0 22px rgba(240, 160, 50, 0.35), 0 0 50px rgba(240, 150, 30, 0.15) !important;
+            background: rgba(30, 24, 18, 0.7) !important;
+        }
+        .fav-card.active::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            border-radius: var(--radius-sm);
+            border: 2px solid transparent;
+            background: linear-gradient(135deg, rgba(240, 170, 60, 0.6), rgba(255, 200, 100, 0.2), rgba(240, 160, 50, 0.5)) border-box;
+            -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            animation: borderShine 2.5s ease-in-out infinite;
+        }
+        @keyframes borderShine {
+            0%,
+            100% {
+                opacity: 0.6;
+            }
+            50% {
+                opacity: 1;
+            }
+        }
+        .fav-card-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.03em;
+            color: #d8d8f0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: var(--font-sans);
+        }
+        .fav-card-meta {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            letter-spacing: 0.03em;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .fav-card-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 2px;
+        }
+        .fav-btn-sm {
+            font-size: 0.7rem;
+            padding: 5px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(150, 170, 210, 0.3);
+            background: rgba(20, 24, 38, 0.6);
+            color: #b0b8d0;
+            cursor: pointer;
+            letter-spacing: 0.04em;
+            transition: var(--transition-fast);
+            font-family: var(--font-sans);
+            white-space: nowrap;
+        }
+        .fav-btn-sm:hover {
+            background: rgba(40, 48, 70, 0.7);
+            border-color: rgba(180, 200, 240, 0.5);
+            color: #e0e4f4;
+        }
+        .fav-btn-sm.delete-btn:hover {
+            background: rgba(80, 20, 30, 0.55);
+            border-color: rgba(240, 80, 100, 0.5);
+            color: #ffb0b8;
+        }
+        .no-favorites {
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            padding: 30px 10px;
+            letter-spacing: 0.04em;
+            font-family: var(--font-mono);
+            opacity: 0.6;
+        }
+
+        /* ============ 模态弹窗 ============ */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.65);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            animation: fadeIn 0.25s ease;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        .modal-dialog {
+            background: linear-gradient(160deg, #111830 0%, #0d1225 40%, #0f1630 100%);
+            border: 1.5px solid rgba(140, 180, 230, 0.4);
+            border-radius: var(--radius-lg);
+            padding: 26px 28px;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(100, 160, 230, 0.2);
+            animation: modalSlideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 1001;
+        }
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(30px) scale(0.92);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+        .modal-dialog h3 {
+            font-family: var(--font-mono);
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+            color: #d8e0f8;
+            font-size: 1.1rem;
+        }
+        .modal-dialog .modal-subtitle {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            letter-spacing: 0.03em;
+        }
+        .modal-dialog input {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 0.95rem;
+            font-family: var(--font-mono);
+            letter-spacing: 0.03em;
+            background: rgba(8, 12, 24, 0.7);
+            border: 1.5px solid rgba(120, 160, 210, 0.35);
+            border-radius: var(--radius-sm);
+            color: #e0e8f8;
+            outline: none;
+            margin-bottom: 16px;
+            transition: var(--transition-fast);
+        }
+        .modal-dialog input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 18px rgba(0, 200, 255, 0.15);
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .modal-buttons .btn {
+            padding: 10px 20px;
+            font-size: 0.85rem;
+            border-radius: 8px;
+        }
+        .btn-confirm {
+            background: linear-gradient(135deg, #1a5f8a, #1b3d6b);
+            color: #d8f0ff;
+            border: 1.5px solid rgba(80, 180, 240, 0.5);
+        }
+        .btn-cancel {
+            background: rgba(30, 34, 50, 0.7);
+            color: #b0b8d0;
+            border: 1.5px solid rgba(120, 140, 180, 0.3);
+        }
+
+        /* ============ Toast 提示 ============ */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(16, 20, 35, 0.9);
+            border: 1px solid rgba(140, 190, 230, 0.4);
+            border-radius: 30px;
+            padding: 10px 22px;
+            font-size: 0.85rem;
+            letter-spacing: 0.04em;
+            color: #d0d8f0;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            font-family: var(--font-sans);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+            pointer-events: auto;
+        }
+        .toast.success {
+            border-color: rgba(60, 220, 150, 0.5);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(60, 220, 150, 0.2);
+        }
+        .toast.warning {
+            border-color: rgba(240, 160, 50, 0.5);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(240, 160, 50, 0.2);
+        }
+
+        /* ============ 响应式 ============ */
+        @media (max-width: 640px) {
+            .input-section {
+                flex-direction: column;
+                gap: 10px;
+                padding: 14px 16px;
+            }
+            .input-wrapper {
+                max-width: 100%;
+                min-width: auto;
+            }
+            .btn {
+                width: 100%;
+                text-align: center;
+                padding: 13px 18px;
+            }
+            .stats-bar {
+                gap: 8px;
+            }
+            .stat-card {
+                padding: 10px 12px;
+                min-width: 60px;
+            }
+            .stat-value {
+                font-size: 1.2rem;
+            }
+            .favorites-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 8px;
+            }
+            .chart-section {
+                min-height: 280px;
+                padding: 10px 6px 6px;
+            }
+            .chart-section canvas {
+                max-height: 300px;
+            }
+            .header h1 {
+                font-size: 1.4rem;
+            }
+        }
+        @media (max-width: 380px) {
+            .favorites-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 6px;
+            }
+            .fav-card {
+                padding: 10px;
+            }
+            .fav-card-name {
+                font-size: 0.78rem;
+            }
+            .fav-card-meta {
+                font-size: 0.65rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 粒子背景 -->
+    <canvas id="particles-canvas"></canvas>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- 模态弹窗 -->
+    <div class="modal-overlay" id="modalOverlay" style="display:none;">
+        <div class="modal-dialog">
+            <h3>💾 收藏此序列</h3>
+            <p class="modal-subtitle" id="modalSubtitle">为这个克拉茨序列取个名字吧</p>
+            <input type="text" id="modalInput" placeholder="输入收藏名称（可选）" maxlength="40">
+            <div class="modal-buttons">
+                <button class="btn btn-cancel" id="modalCancel">取消</button>
+                <button class="btn btn-confirm" id="modalConfirm">确认收藏</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主容器 -->
+    <div class="main-container">
+        <!-- 标题 -->
+        <div class="header">
+            <span class="logo-icon">🌀</span>
+            <h1>克拉茨猜想</h1>
+            <p class="subtitle">Collatz Conjecture · 3n+1 · 可视化</p>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="input-section" id="inputSection">
+            <div class="input-wrapper">
+                <input
+                type="number"
+                id="numberInput"
+                placeholder="输入一个正整数"
+                min="1"
+                max="1000000000000"
+                step="1"
+                autocomplete="off"
+                >
+                <span class="input-hint">n ≥ 1</span>
+            </div>
+            <button class="btn btn-generate" id="btnGenerate">
+                <span class="btn-icon">⚡</span>生成曲线
+            </button>
+            <button class="btn btn-favorite" id="btnFavorite" disabled>
+                <span class="btn-icon">★</span>收藏
+            </button>
+        </div>
+
+        <!-- 图表区域 -->
+        <div class="chart-section" id="chartSection">
+            <div class="chart-placeholder" id="chartPlaceholder">
+                <span class="placeholder-icon">📈</span>
+                <span class="placeholder-text">输入数字，探索克拉茨猜想的奥秘</span>
+            </div>
+            <canvas id="collatzChart" style="display:none;"></canvas>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="stats-bar" id="statsBar" style="display:none;">
+            <div class="stat-card">
+                <div class="stat-value" id="statSteps">-</div>
+                <div class="stat-label">总步数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statMax">-</div>
+                <div class="stat-label">峰值</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statStart">-</div>
+                <div class="stat-label">起始数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statPeakStep">-</div>
+                <div class="stat-label">峰值步</div>
+            </div>
+        </div>
+
+        <!-- 收藏区域 -->
+        <div class="favorites-section" id="favoritesSection">
+            <div class="favorites-header">
+                <span class="favorites-title">
+                    <span class="star-icon">⭐</span>我的收藏
+                </span>
+                <span class="favorites-count" id="favoritesCount">共 0 项</span>
+            </div>
+            <div class="favorites-grid" id="favoritesGrid">
+                <div class="no-favorites">还没有收藏，生成序列后点击 ★ 收藏按钮即可保存</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ============ DOM 引用 ============
+            const particlesCanvas = document.getElementById('particles-canvas');
+            const particlesCtx = particlesCanvas.getContext('2d');
+            const numberInput = document.getElementById('numberInput');
+            const btnGenerate = document.getElementById('btnGenerate');
+            const btnFavorite = document.getElementById('btnFavorite');
+            const chartSection = document.getElementById('chartSection');
+            const chartPlaceholder = document.getElementById('chartPlaceholder');
+            const chartCanvas = document.getElementById('collatzChart');
+            const chartCtx = chartCanvas.getContext('2d');
+            const statsBar = document.getElementById('statsBar');
+            const statSteps = document.getElementById('statSteps');
+            const statMax = document.getElementById('statMax');
+            const statStart = document.getElementById('statStart');
+            const statPeakStep = document.getElementById('statPeakStep');
+            const favoritesGrid = document.getElementById('favoritesGrid');
+            const favoritesCount = document.getElementById('favoritesCount');
+            const modalOverlay = document.getElementById('modalOverlay');
+            const modalInput = document.getElementById('modalInput');
+            const modalSubtitle = document.getElementById('modalSubtitle');
+            const modalCancel = document.getElementById('modalCancel');
+            const modalConfirm = document.getElementById('modalConfirm');
+            const toast = document.getElementById('toast');
+
+            // ============ 状态 ============
+            let collatzChart = null;
+            let currentSequence = null;
+            let currentStartNumber = null;
+            let currentFavId = null; // 当前查看的收藏ID（如果有）
+            let favorites = []; // { id, name, startNumber, createdAt }
+            let pendingSaveData = null; // 待保存的序列数据
+            let toastTimer = null;
+
+            // ============ 粒子系统 ============
+            let particles = [];
+            const PARTICLE_COUNT_BASE = 80;
+            let particleCount = PARTICLE_COUNT_BASE;
+            let animFrameId = null;
+            let mouseX = -999;
+            let mouseY = -999;
+
+            function initParticles() {
+                const area = window.innerWidth * window.innerHeight;
+                particleCount = Math.min(Math.floor(area / 12000), 140);
+                particleCount = Math.max(particleCount, 35);
+                particles = [];
+                for (let i = 0; i < particleCount; i++) {
+                    particles.push({
+                        x: Math.random() * window.innerWidth,
+                        y: Math.random() * window.innerHeight,
+                        vx: (Math.random() - 0.5) * 0.55,
+                        vy: (Math.random() - 0.5) * 0.55,
+                        radius: Math.random() * 1.8 + 0.6,
+                        alpha: Math.random() * 0.55 + 0.25,
+                        pulseSpeed: Math.random() * 0.015 + 0.006,
+                        pulseOffset: Math.random() * Math.PI * 2,
+                    });
+                }
+            }
+
+            function resizeParticlesCanvas() {
+                particlesCanvas.width = window.innerWidth;
+                particlesCanvas.height = window.innerHeight;
+            }
+
+            function animateParticles(timestamp) {
+                particlesCtx.clearRect(0, 0, particlesCanvas.width, particlesCanvas.height);
+
+                for (let i = 0; i < particles.length; i++) {
+                    const p = particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    // 边界反弹
+                    if (p.x < -30) p.x = particlesCanvas.width + 30;
+                    if (p.x > particlesCanvas.width + 30) p.x = -30;
+                    if (p.y < -30) p.y = particlesCanvas.height + 30;
+                    if (p.y > particlesCanvas.height + 30) p.y = -30;
+
+                    // 脉冲透明度
+                    const pulse = Math.sin(timestamp * p.pulseSpeed + p.pulseOffset) * 0.3 + 0.7;
+                    const alpha = p.alpha * pulse;
+
+                    // 绘制粒子
+                    particlesCtx.beginPath();
+                    particlesCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    const gradient = particlesCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius * 3);
+                    gradient.addColorStop(0, `rgba(140,190,240,${alpha})`);
+                    gradient.addColorStop(0.5, `rgba(100,150,220,${alpha * 0.5})`);
+                    gradient.addColorStop(1, `rgba(60,100,180,0)`);
+                    particlesCtx.fillStyle = gradient;
+                    particlesCtx.fill();
+                }
+
+                // 绘制连线
+                const maxDist = 130;
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < maxDist) {
+                            const lineAlpha = (1 - dist / maxDist) * 0.28;
+                            particlesCtx.beginPath();
+                            particlesCtx.moveTo(particles[i].x, particles[i].y);
+                            particlesCtx.lineTo(particles[j].x, particles[j].y);
+                            particlesCtx.strokeStyle = `rgba(120,170,220,${lineAlpha})`;
+                            particlesCtx.lineWidth = 0.5;
+                            particlesCtx.stroke();
+                        }
+                    }
+                }
+
+                // 鼠标吸引效果
+                if (mouseX > -500 && mouseY > -500) {
+                    for (let i = 0; i < particles.length; i++) {
+                        const dx = mouseX - particles[i].x;
+                        const dy = mouseY - particles[i].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 200 && dist > 1) {
+                            const force = 0.015;
+                            particles[i].vx += (dx / dist) * force;
+                            particles[i].vy += (dy / dist) * force;
+                            // 阻尼
+                            particles[i].vx *= 0.998;
+                            particles[i].vy *= 0.998;
+                        }
+                    }
+                }
+
+                // 速度限制
+                for (let i = 0; i < particles.length; i++) {
+                    const speed = Math.sqrt(particles[i].vx ** 2 + particles[i].vy ** 2);
+                    if (speed > 1.2) {
+                        particles[i].vx = (particles[i].vx / speed) * 1.2;
+                        particles[i].vy = (particles[i].vy / speed) * 1.2;
+                    }
+                }
+
+                animFrameId = requestAnimationFrame(animateParticles);
+            }
+
+            function onMouseMove(e) {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            }
+
+            function onMouseLeave() {
+                mouseX = -999;
+                mouseY = -999;
+            }
+
+            // ============ Toast ============
+            function showToast(message, type = '') {
+                if (toastTimer) clearTimeout(toastTimer);
+                toast.textContent = message;
+                toast.className = 'toast ' + type + ' show';
+                toastTimer = setTimeout(() => {
+                    toast.classList.remove('show');
+                    toast.className = 'toast';
+                }, 2200);
+            }
+
+            // ============ 模态弹窗 ============
+            function showModal(subtitle, callback) {
+                modalSubtitle.textContent = subtitle;
+                modalInput.value = '';
+                modalOverlay.style.display = 'flex';
+                modalInput.focus();
+                const confirmHandler = () => {
+                    const name = modalInput.value.trim();
+                    callback(name || null);
+                    closeModal();
+                };
+                const cancelHandler = () => {
+                    callback(null);
+                    closeModal();
+                };
+                modalConfirm.onclick = confirmHandler;
+                modalCancel.onclick = cancelHandler;
+                modalInput.onkeydown = (e) => {
+                    if (e.key === 'Enter') confirmHandler();
+                    if (e.key === 'Escape') cancelHandler();
+                };
+                modalOverlay.onclick = (e) => {
+                    if (e.target === modalOverlay) cancelHandler();
+                };
+            }
+
+            function closeModal() {
+                modalOverlay.style.display = 'none';
+                modalConfirm.onclick = null;
+                modalCancel.onclick = null;
+                modalInput.onkeydown = null;
+                modalOverlay.onclick = null;
+            }
+
+            // ============ 克拉茨序列计算 ============
+            function computeCollatzSequence(n) {
+                const MAX_STEPS = 2000;
+                const sequence = [n];
+                let current = n;
+                let steps = 0;
+                while (current !== 1 && steps < MAX_STEPS) {
+                    if (current % 2 === 0) {
+                        current = current / 2;
+                    } else {
+                        // 检查是否会超出安全整数范围
+                        if (current > Number.MAX_SAFE_INTEGER / 3) {
+                            // 接近安全上限，停止计算
+                            sequence.push(null); // 标记截断
+                            break;
+                        }
+                        current = 3 * current + 1;
+                    }
+                    sequence.push(current);
+                    steps++;
+                }
+                return {
+                    sequence,
+                    truncated: steps >= MAX_STEPS && current !== 1,
+                    reachedOne: current === 1,
+                    steps: sequence.length - 1,
+                };
+            }
+
+            function getSequenceStats(sequence) {
+                const validSeq = sequence.filter(v => v !== null);
+                const maxVal = Math.max(...validSeq);
+                const maxIndex = validSeq.indexOf(maxVal);
+                return {
+                    maxValue: maxVal,
+                    maxStep: maxIndex,
+                    startNumber: validSeq[0],
+                    steps: validSeq.length - 1,
+                };
+            }
+
+            // ============ 图表管理 ============
+            function getChartGradient(ctx, chartArea, color1, color2) {
+                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                gradient.addColorStop(0, color1);
+                gradient.addColorStop(0.7, color2);
+                gradient.addColorStop(1, 'rgba(20,30,60,0.02)');
+                return gradient;
+            }
+
+            function getLineColorForIndex(index) {
+                const colors = [
+                    'rgba(0,200,240,0.9)',
+                    'rgba(100,180,255,0.9)',
+                    'rgba(140,120,255,0.9)',
+                    'rgba(200,100,220,0.9)',
+                    'rgba(60,220,180,0.9)',
+                ];
+                return colors[index % colors.length];
+            }
+
+            function getFillColorForIndex(index) {
+                const colors = [
+                    'rgba(0,180,220,0.35)',
+                    'rgba(80,160,240,0.35)',
+                    'rgba(120,100,240,0.35)',
+                    'rgba(180,80,200,0.35)',
+                    'rgba(40,200,160,0.35)',
+                ];
+                return colors[index % colors.length];
+            }
+
+            function renderChart(sequence, favColorIndex = -1) {
+                const validSeq = sequence.filter(v => v !== null);
+                if (validSeq.length === 0) return;
+
+                const stats = getSequenceStats(validSeq);
+                const labels = Array.from({ length: validSeq.length }, (_, i) => i);
+                const colorIdx = favColorIndex >= 0 ? favColorIndex : Math.floor(Math.random() * 5);
+                const lineColor = getLineColorForIndex(colorIdx);
+                const fillColor = getFillColorForIndex(colorIdx);
+
+                // 动态调整点的大小
+                let pointRadius = 3;
+                if (validSeq.length > 500) pointRadius = 0;
+                else if (validSeq.length > 200) pointRadius = 1;
+                else if (validSeq.length > 80) pointRadius = 1.5;
+                else pointRadius = 2.5;
+
+                // 准备点颜色数组（高亮最大值）
+                const pointColors = validSeq.map((v, i) => {
+                    if (v === stats.maxValue && i === stats.maxStep) {
+                        return 'rgba(255,180,40,1)';
+                    }
+                    return lineColor.replace('0.9', '0.7');
+                });
+                const pointRadii = validSeq.map((v, i) => {
+                    if (v === stats.maxValue && i === stats.maxStep) return Math.max(pointRadius + 3, 5);
+                    return pointRadius;
+                });
+                const pointBorderColors = validSeq.map((v, i) => {
+                    if (v === stats.maxValue && i === stats.maxStep) return 'rgba(255,220,80,1)';
+                    return 'rgba(0,0,0,0.3)';
+                });
+
+                if (collatzChart) {
+                    collatzChart.destroy();
+                    collatzChart = null;
+                }
+
+                chartCanvas.style.display = 'block';
+                chartPlaceholder.classList.add('hidden');
+
+                collatzChart = new Chart(chartCtx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: `Collatz(${stats.startNumber})`,
+                            data: validSeq,
+                            borderColor: lineColor,
+                            backgroundColor: function(context) {
+                                const chart = context.chart;
+                                const { ctx, chartArea } = chart;
+                                if (!chartArea) return fillColor;
+                                return getChartGradient(ctx, chartArea,
+                                    fillColor.replace('0.35', '0.5'),
+                                    fillColor.replace('0.35', '0.04')
+                                );
+                            },
+                            borderWidth: 1.8,
+                            pointRadius: pointRadii,
+                            pointBackgroundColor: pointColors,
+                            pointBorderColor: pointBorderColors,
+                            pointBorderWidth: 1,
+                            pointHoverRadius: pointRadii.map(r => r + 2),
+                            pointHoverBackgroundColor: pointColors.map(c =>
+                                c.includes('255,180,40') ? 'rgba(255,220,80,1)' : 'rgba(255,255,255,0.9)'
+                            ),
+                            tension: 0.08,
+                            fill: true,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 2.2,
+                        animation: {
+                            duration: 800,
+                            easing: 'easeInOutQuart',
+                        },
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                labels: {
+                                    color: '#b0b8d0',
+                                    font: {
+                                        family: "'SF Mono','Consolas','Monaco',monospace",
+                                        size: 12,
+                                    },
+                                    usePointStyle: true,
+                                    pointStyleWidth: 8,
+                                    padding: 20,
+                                },
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(10,14,28,0.9)',
+                                titleColor: '#d0d8f0',
+                                bodyColor: '#c0c8e0',
+                                borderColor: 'rgba(120,170,220,0.5)',
+                                borderWidth: 1,
+                                padding: 12,
+                                titleFont: {
+                                    family: "'SF Mono','Consolas','Monaco',monospace",
+                                    size: 12,
+                                },
+                                bodyFont: {
+                                    family: "'SF Mono','Consolas','Monaco',monospace",
+                                    size: 11,
+                                },
+                                callbacks: {
+                                    title: function(items) {
+                                        return `步骤: ${items[0].label}`;
+                                    },
+                                    label: function(item) {
+                                        const val = item.raw;
+                                        if (val === stats.maxValue && item.dataIndex === stats.maxStep) {
+                                            return `🔥 峰值: ${val.toLocaleString()}`;
+                                        }
+                                        return `数值: ${val.toLocaleString()}`;
+                                    },
+                                },
+                            },
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: '步数',
+                                    color: '#8a90b0',
+                                    font: {
+                                        family: "'SF Mono','Consolas','Monaco',monospace",
+                                        size: 11,
+                                        letterSpacing: '0.04em',
+                                    },
+                                },
+                                ticks: {
+                                    color: '#6a7090',
+                                    font: {
+                                        family: "'SF Mono','Consolas','Monaco',monospace",
+                                        size: 10,
+                                    },
+                                    maxTicksLimit: 15,
+                                },
+                                grid: {
+                                    color: 'rgba(100,130,180,0.1)',
+                                    drawBorder: false,
+                                },
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: '数值',
+                                    color: '#8a90b0',
+                                    font: {
+                                        family: "'SF Mono','Consolas','Monaco',monospace",
+                                        size: 11,
+                                        letterSpacing: '0.04em',
+                                    },
+                                },
+                                ticks: {
+                                    color: '#6a7090',
+                                    font: {
+                                        family: "'SF Mono','Consolas','Monaco',monospace",
+                                        size: 10,
+                                    },
+                                    maxTicksLimit: 10,
+                                    callback: function(val) {
+                                        if (val >= 1e6) return (val / 1e6).toFixed(1) + 'M';
+                                        if (val >= 1e3) return (val / 1e3).toFixed(1) + 'K';
+                                        return val;
+                                    },
+                                },
+                                grid: {
+                                    color: 'rgba(100,130,180,0.1)',
+                                    drawBorder: false,
+                                },
+                                beginAtZero: false,
+                            },
+                        },
+                    },
+                    plugins: [{
+                        id: 'glowEffect',
+                        afterDraw(chart) {
+                            const ctx = chart.ctx;
+                            const meta = chart.getDatasetMeta(0);
+                            if (!meta || !meta.data || meta.data.length === 0) return;
+                            // 找到最大值点
+                            const maxPoint = meta.data[stats.maxStep];
+                            if (maxPoint && stats.maxValue > 100) {
+                                ctx.save();
+                                ctx.globalAlpha = 0.5;
+                                const glowGrad = ctx.createRadialGradient(
+                                    maxPoint.x, maxPoint.y, 3,
+                                    maxPoint.x, maxPoint.y, 18
+                                );
+                                glowGrad.addColorStop(0, 'rgba(255,200,60,0.7)');
+                                glowGrad.addColorStop(0.5, 'rgba(255,160,30,0.25)');
+                                glowGrad.addColorStop(1, 'rgba(255,120,20,0)');
+                                ctx.fillStyle = glowGrad;
+                                ctx.beginPath();
+                                ctx.arc(maxPoint.x, maxPoint.y, 18, 0, Math.PI * 2);
+                                ctx.fill();
+                                ctx.restore();
+                            }
+                        },
+                    }],
+                });
+
+                // 更新统计信息
+                updateStats(stats);
+                statsBar.style.display = 'flex';
+                btnFavorite.disabled = false;
+            }
+
+            function updateStats(stats) {
+                statSteps.textContent = stats.steps.toLocaleString();
+                statMax.textContent = stats.maxValue.toLocaleString();
+                statStart.textContent = stats.startNumber.toLocaleString();
+                statPeakStep.textContent = stats.maxStep.toLocaleString();
+            }
+
+            function clearChart() {
+                if (collatzChart) {
+                    collatzChart.destroy();
+                    collatzChart = null;
+                }
+                chartCanvas.style.display = 'none';
+                chartPlaceholder.classList.remove('hidden');
+                statsBar.style.display = 'none';
+                btnFavorite.disabled = true;
+                currentSequence = null;
+                currentStartNumber = null;
+                currentFavId = null;
+                updateFavCardsHighlight();
+            }
+
+            // ============ 收藏管理 ============
+            function loadFavorites() {
+                try {
+                    const data = localStorage.getItem('collatz-favorites');
+                    if (data) {
+                        favorites = JSON.parse(data);
+                        if (!Array.isArray(favorites)) favorites = [];
+                    }
+                } catch (e) {
+                    favorites = [];
+                }
+                // 验证数据结构
+                favorites = favorites.filter(f => f && typeof f.id === 'string' && typeof f.startNumber ===
+                    'number');
+            }
+
+            function saveFavorites() {
+                try {
+                    localStorage.setItem('collatz-favorites', JSON.stringify(favorites));
+                } catch (e) {
+                    showToast('存储空间不足，请清理一些收藏', 'warning');
+                }
+            }
+
+            function addFavorite(name, startNumber) {
+                const favName = name || `Collatz(${startNumber})`;
+                const fav = {
+                    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                    name: favName,
+                    startNumber: startNumber,
+                    createdAt: Date.now(),
+                };
+                favorites.unshift(fav);
+                saveFavorites();
+                renderFavorites();
+                showToast('✅ 收藏成功！', 'success');
+                return fav;
+            }
+
+            function deleteFavorite(id) {
+                const index = favorites.findIndex(f => f.id === id);
+                if (index >= 0) {
+                    const removed = favorites.splice(index, 1)[0];
+                    saveFavorites();
+                    renderFavorites();
+                    if (currentFavId === id) {
+                        currentFavId = null;
+                        updateFavCardsHighlight();
+                    }
+                    showToast(`已删除「${removed.name}」`, 'warning');
+                }
+            }
+
+            function getCachedStats(startNumber) {
+                // 快速计算统计信息用于卡片显示
+                const result = computeCollatzSequence(startNumber);
+                if (result.truncated || !result.reachedOne) {
+                    return { steps: result.steps + '+', maxValue: '?', maxStep: '?' };
+                }
+                const stats = getSequenceStats(result.sequence);
+                return stats;
+            }
+
+            function renderFavorites() {
+                favoritesGrid.innerHTML = '';
+                if (favorites.length === 0) {
+                    favoritesGrid.innerHTML =
+                        '<div class="no-favorites">还没有收藏，生成序列后点击 ★ 收藏按钮即可保存</div>';
+                } else {
+                    favorites.forEach(fav => {
+                        const stats = getCachedStats(fav.startNumber);
+                        const card = document.createElement('div');
+                        card.className = 'fav-card';
+                        if (fav.id === currentFavId) {
+                            card.classList.add('active');
+                        }
+                        card.innerHTML = `
+                            <div class="fav-card-name">${escapeHtml(fav.name)}</div>
+                            <div class="fav-card-meta">
+                                <span>n=${fav.startNumber.toLocaleString()}</span>
+                                <span>${stats.steps}步</span>
+                                <span>峰值${typeof stats.maxValue === 'number' ? stats.maxValue.toLocaleString() : stats.maxValue}</span>
+                            </div>
+                            <div class="fav-card-actions">
+                                <button class="fav-btn-sm view-btn" data-id="${fav.id}">📊 查看</button>
+                                <button class="fav-btn-sm delete-btn" data-id="${fav.id}">🗑 删除</button>
+                            </div>
+                        `;
+                        // 点击卡片主体查看
+                        card.addEventListener('click', (e) => {
+                            if (e.target.closest('.delete-btn') || e.target.closest('.view-btn'))
+                                return;
+                            loadFavorite(fav);
+                        });
+                        // 查看按钮
+                        card.querySelector('.view-btn').addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            loadFavorite(fav);
+                        });
+                        // 删除按钮
+                        card.querySelector('.delete-btn').addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            if (confirm(`确定要删除收藏「${fav.name}」吗？`)) {
+                                deleteFavorite(fav.id);
+                            }
+                        });
+                        favoritesGrid.appendChild(card);
+                    });
+                }
+                favoritesCount.textContent = `共 ${favorites.length} 项`;
+            }
+
+            function updateFavCardsHighlight() {
+                const cards = favoritesGrid.querySelectorAll('.fav-card');
+                cards.forEach(card => {
+                    const viewBtn = card.querySelector('.view-btn');
+                    const cardId = viewBtn ? viewBtn.dataset.id : null;
+                    if (cardId === currentFavId) {
+                        card.classList.add('active');
+                    } else {
+                        card.classList.remove('active');
+                    }
+                });
+            }
+
+            function loadFavorite(fav) {
+                numberInput.value = fav.startNumber;
+                currentStartNumber = fav.startNumber;
+                currentFavId = fav.id;
+                const result = computeCollatzSequence(fav.startNumber);
+                if (result.truncated) {
+                    showToast('⚠️ 序列过长已截断（2000步上限）', 'warning');
+                }
+                currentSequence = result.sequence;
+                renderChart(result.sequence, favorites.indexOf(fav) % 5);
+                updateFavCardsHighlight();
+                // 滚动到图表
+                chartSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            function escapeHtml(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            // ============ 事件处理 ============
+            function handleGenerate() {
+                const inputVal = numberInput.value.trim();
+                if (!inputVal) {
+                    showToast('请输入一个正整数', 'warning');
+                    numberInput.focus();
+                    return;
+                }
+                const n = parseInt(inputVal, 10);
+                if (isNaN(n) || n < 1 || !Number.isInteger(Number(inputVal))) {
+                    showToast('请输入有效的正整数（n ≥ 1）', 'warning');
+                    numberInput.focus();
+                    return;
+                }
+                if (n > 1e12) {
+                    showToast('数字过大，请输入 ≤ 10¹² 的正整数', 'warning');
+                    numberInput.focus();
+                    return;
+                }
+
+                currentStartNumber = n;
+                currentFavId = null;
+                updateFavCardsHighlight();
+
+                const result = computeCollatzSequence(n);
+                if (result.truncated) {
+                    showToast('⚠️ 序列过长已截断（2000步上限）', 'warning');
+                }
+                currentSequence = result.sequence;
+                renderChart(result.sequence);
+                chartSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                btnFavorite.disabled = false;
+            }
+
+            function handleFavorite() {
+                if (!currentSequence || !currentStartNumber) {
+                    showToast('请先生成序列', 'warning');
+                    return;
+                }
+                const defaultName = `Collatz(${currentStartNumber})`;
+                const stats = getSequenceStats(currentSequence.filter(v => v !== null));
+                const subtitle = `n=${currentStartNumber.toLocaleString()} · ${stats.steps}步 · 峰值${stats.maxValue.toLocaleString()}`;
+                showModal(subtitle, (name) => {
+                    if (name === null) return; // 用户取消
+                    const fav = addFavorite(name || defaultName, currentStartNumber);
+                    currentFavId = fav.id;
+                    updateFavCardsHighlight();
+                });
+                modalInput.value = defaultName;
+                modalInput.select();
+            }
+
+            btnGenerate.addEventListener('click', handleGenerate);
+            btnFavorite.addEventListener('click', handleFavorite);
+            numberInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleGenerate();
+                }
+            });
+
+            // ============ 键盘快捷键 ============
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeModal();
+                }
+                // Ctrl+Enter 快速收藏
+                if (e.ctrlKey && e.key === 'Enter' && !btnFavorite.disabled) {
+                    e.preventDefault();
+                    handleFavorite();
+                }
+            });
+
+            // ============ 初始化 ============
+            function init() {
+                resizeParticlesCanvas();
+                initParticles();
+                animFrameId = requestAnimationFrame(animateParticles);
+                loadFavorites();
+                renderFavorites();
+                // 默认展示数字27的序列
+                numberInput.value = '27';
+                handleGenerate();
+            }
+
+            // ============ 窗口事件 ============
+            window.addEventListener('resize', () => {
+                resizeParticlesCanvas();
+                initParticles();
+            });
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseleave', onMouseLeave);
+            window.addEventListener('touchmove', (e) => {
+                if (e.touches.length > 0) {
+                    mouseX = e.touches[0].clientX;
+                    mouseY = e.touches[0].clientY;
+                }
+            }, { passive: true });
+            window.addEventListener('touchend', () => {
+                mouseX = -999;
+                mouseY = -999;
+            });
+
+            // ============ 启动 ============
+            init();
+
+            // ============ 清理（SPA场景） ============
+            // 此应用为独立页面，无需额外清理逻辑
+            console.log('%c🌀 克拉茨猜想可视化已就绪 %c| %cCollatz Conjecture Visualizer',
+                'color:#7dd3fc;font-size:1.1em;',
+                '',
+                'color:#b98df7;');
+            console.log('%c💡 提示：输入正整数生成序列 | ★ 收藏 | Ctrl+Enter 快速收藏',
+                'color:#a0a8c0;font-size:0.85em;');
+        })();
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>克拉茨猜想 · Collatz Conjecture 可视化</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+    </script>
+    <style>
+        :root {
+            --bg-deep: #06080f;
+            --bg-card: rgba(14, 16, 28, 0.75);
+            --border-glow: rgba(100, 180, 255, 0.35);
+            --accent-cyan: #00d4ff;
+            --accent-purple: #b347ea;
+            --accent-gold: #f0a840;
+            --accent-pink: #ff5e99;
+            --accent-green: #3dfcb4;
+            --text-primary: #e8e8f0;
+            --text-secondary: #a0a8c0;
+            --text-dim: #5a6078;
+            --shadow-glow-cyan: 0 0 30px rgba(0, 180, 255, 0.25), 0 0 60px rgba(0, 160, 240, 0.10);
+            --shadow-glow-purple: 0 0 30px rgba(160, 60, 240, 0.25), 0 0 60px rgba(140, 40, 220, 0.10);
+            --shadow-glow-gold: 0 0 20px rgba(240, 160, 50, 0.30), 0 0 40px rgba(220, 140, 30, 0.12);
+            --font-mono: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Consolas', 'Monaco', 'Courier New', monospace;
+            --font-sans: 'Inter', 'SF Pro Display', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            --radius-lg: 20px;
+            --radius-md: 14px;
+            --radius-sm: 10px;
+            --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-smooth: 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+            --transition-bounce: 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg-deep);
+            font-family: var(--font-sans);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            cursor: default;
+            user-select: none;
+        }
+
+        /* ============ 粒子背景 ============ */
+        #particles-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.85;
+        }
+
+        /* ============ 主容器 ============ */
+        .main-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 22px;
+            padding: 10px 0 40px;
+        }
+
+        /* ============ 标题区域 ============ */
+        .header {
+            text-align: center;
+            padding: 10px 0 6px;
+        }
+        .header .logo-icon {
+            display: inline-block;
+            font-size: 3rem;
+            animation: floatIcon 3.5s ease-in-out infinite;
+            filter: drop-shadow(0 0 18px rgba(160, 200, 255, 0.5));
+            line-height: 1;
+        }
+        @keyframes floatIcon {
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+            30% {
+                transform: translateY(-14px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+            85% {
+                transform: translateY(-10px);
+            }
+        }
+        .header h1 {
+            font-family: var(--font-mono);
+            font-size: clamp(1.6rem, 3.5vw, 2.3rem);
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            background: linear-gradient(135deg, #c8e6ff 0%, #8ec5fc 30%, #b98df7 60%, #7dd3fc 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 4px 0 2px;
+            text-shadow: none;
+            filter: drop-shadow(0 0 12px rgba(150, 180, 240, 0.4));
+        }
+        .header .subtitle {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            letter-spacing: 0.08em;
+            font-weight: 400;
+            opacity: 0.75;
+            font-family: var(--font-mono);
+        }
+
+        /* ============ 输入区域 ============ */
+        .input-section {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            background: var(--bg-card);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--border-glow);
+            border-radius: var(--radius-lg);
+            padding: 18px 22px;
+            box-shadow: var(--shadow-glow-cyan), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            transition: var(--transition-smooth);
+        }
+        .input-section:focus-within {
+            border-color: rgba(140, 200, 255, 0.6);
+            box-shadow: var(--shadow-glow-cyan), 0 0 50px rgba(0, 180, 255, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+        .input-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 180px;
+            max-width: 320px;
+        }
+        .input-wrapper input {
+            width: 100%;
+            padding: 14px 18px;
+            font-size: 1.05rem;
+            font-family: var(--font-mono);
+            font-weight: 500;
+            letter-spacing: 0.03em;
+            background: rgba(8, 10, 20, 0.7);
+            border: 1.5px solid rgba(120, 160, 210, 0.35);
+            border-radius: var(--radius-md);
+            color: #e0e8f8;
+            outline: none;
+            transition: var(--transition-fast);
+            caret-color: var(--accent-cyan);
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
+        }
+        .input-wrapper input::placeholder {
+            color: var(--text-dim);
+            font-weight: 400;
+            letter-spacing: 0.02em;
+        }
+        .input-wrapper input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.4), 0 0 22px rgba(0, 200, 255, 0.18);
+        }
+        .input-hint {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            font-family: var(--font-mono);
+            pointer-events: none;
+            letter-spacing: 0.04em;
+        }
+
+        /* 按钮 */
+        .btn {
+            padding: 13px 26px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            font-family: var(--font-sans);
+            letter-spacing: 0.04em;
+            border-radius: var(--radius-md);
+            border: none;
+            cursor: pointer;
+            transition: var(--transition-bounce);
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+            outline: none;
+        }
+        .btn:active {
+            transform: scale(0.94);
+            transition: 0.08s ease;
+        }
+        .btn-generate {
+            background: linear-gradient(135deg, #1a5f8a 0%, #1b3d6b 40%, #1e2a5e 100%);
+            color: #d8f0ff;
+            border: 1.5px solid rgba(80, 180, 240, 0.5);
+            box-shadow: 0 4px 18px rgba(0, 140, 220, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            letter-spacing: 0.06em;
+        }
+        .btn-generate:hover {
+            background: linear-gradient(135deg, #1e6ea0 0%, #1f4878 40%, #243268 100%);
+            border-color: rgba(100, 210, 255, 0.7);
+            box-shadow: 0 6px 28px rgba(0, 160, 240, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            color: #fff;
+        }
+        .btn-generate:active {
+            transform: scale(0.94);
+            box-shadow: 0 2px 8px rgba(0, 120, 200, 0.3);
+        }
+        .btn-favorite {
+            background: linear-gradient(135deg, #3d1f5c 0%, #2a1840 50%, #1e1030 100%);
+            color: #e8d0ff;
+            border: 1.5px solid rgba(180, 100, 240, 0.45);
+            box-shadow: 0 4px 18px rgba(140, 60, 220, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+            letter-spacing: 0.05em;
+        }
+        .btn-favorite:hover {
+            background: linear-gradient(135deg, #4a2570 0%, #331d50 50%, #26153d 100%);
+            border-color: rgba(200, 130, 255, 0.65);
+            box-shadow: 0 6px 28px rgba(150, 70, 230, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+            color: #fff;
+        }
+        .btn-favorite:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            pointer-events: none;
+            filter: grayscale(30%);
+        }
+        .btn-icon {
+            display: inline-block;
+            margin-right: 5px;
+            font-size: 1.1em;
+            vertical-align: -1px;
+        }
+
+        /* ============ 图表区域 ============ */
+        .chart-section {
+            background: var(--bg-card);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--border-glow);
+            border-radius: var(--radius-lg);
+            padding: 16px 12px 8px;
+            box-shadow: var(--shadow-glow-purple), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            position: relative;
+            transition: var(--transition-smooth);
+            min-height: 380px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .chart-section canvas {
+            width: 100% !important;
+            height: auto !important;
+            max-height: 460px;
+            filter: drop-shadow(0 0 6px rgba(120, 180, 240, 0.3));
+            transition: filter 0.5s ease;
+        }
+        .chart-placeholder {
+            text-align: center;
+            color: var(--text-dim);
+            font-family: var(--font-mono);
+            pointer-events: none;
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            opacity: 0.7;
+            transition: opacity 0.5s ease;
+        }
+        .chart-placeholder .placeholder-icon {
+            font-size: 3.5rem;
+            animation: floatIcon 4s ease-in-out infinite;
+            filter: drop-shadow(0 0 20px rgba(120, 160, 220, 0.4));
+        }
+        .chart-placeholder .placeholder-text {
+            font-size: 0.9rem;
+            letter-spacing: 0.05em;
+        }
+        .chart-placeholder.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* ============ 统计信息栏 ============ */
+        .stats-bar {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            justify-content: center;
+            transition: var(--transition-smooth);
+        }
+        .stat-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(120, 170, 220, 0.3);
+            border-radius: var(--radius-sm);
+            padding: 14px 20px;
+            text-align: center;
+            min-width: 90px;
+            flex: 1;
+            max-width: 180px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+            transition: var(--transition-fast);
+        }
+        .stat-card:hover {
+            border-color: rgba(160, 200, 240, 0.55);
+            box-shadow: 0 4px 20px rgba(0, 140, 220, 0.2);
+        }
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            background: linear-gradient(135deg, #b8e0ff, #c5b0f8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        /* ============ 收藏区域 ============ */
+        .favorites-section {
+            background: var(--bg-card);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--border-glow);
+            border-radius: var(--radius-lg);
+            padding: 18px 18px 14px;
+            box-shadow: var(--shadow-glow-gold), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+            transition: var(--transition-smooth);
+        }
+        .favorites-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .favorites-title {
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            color: #d0c8e8;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .favorites-title .star-icon {
+            font-size: 1.2rem;
+            animation: twinkle 2s ease-in-out infinite;
+        }
+        @keyframes twinkle {
+            0%,
+            100% {
+                opacity: 0.7;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.25);
+            }
+        }
+        .favorites-count {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            font-family: var(--font-mono);
+            letter-spacing: 0.04em;
+        }
+        .favorites-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+            gap: 10px;
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 4px;
+            scroll-behavior: smooth;
+        }
+        .favorites-grid::-webkit-scrollbar {
+            width: 4px;
+        }
+        .favorites-grid::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 4px;
+        }
+        .favorites-grid::-webkit-scrollbar-thumb {
+            background: rgba(120, 160, 210, 0.3);
+            border-radius: 4px;
+        }
+        .favorites-grid::-webkit-scrollbar-thumb:hover {
+            background: rgba(150, 190, 240, 0.5);
+        }
+        .fav-card {
+            background: rgba(18, 20, 35, 0.7);
+            border: 1.5px solid rgba(100, 140, 200, 0.25);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            cursor: pointer;
+            transition: var(--transition-bounce);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        }
+        .fav-card:hover {
+            border-color: rgba(180, 200, 240, 0.55);
+            box-shadow: 0 6px 22px rgba(100, 150, 220, 0.22);
+            transform: translateY(-3px);
+            background: rgba(24, 28, 44, 0.8);
+        }
+        .fav-card.active {
+            border-color: var(--accent-gold) !important;
+            box-shadow: 0 0 22px rgba(240, 160, 50, 0.35), 0 0 50px rgba(240, 150, 30, 0.15) !important;
+            background: rgba(30, 24, 18, 0.7) !important;
+        }
+        .fav-card.active::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            right: -1px;
+            bottom: -1px;
+            border-radius: var(--radius-sm);
+            border: 2px solid transparent;
+            background: linear-gradient(135deg, rgba(240, 170, 60, 0.6), rgba(255, 200, 100, 0.2), rgba(240, 160, 50, 0.5)) border-box;
+            -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            animation: borderShine 2.5s ease-in-out infinite;
+        }
+        @keyframes borderShine {
+            0%,
+            100% {
+                opacity: 0.6;
+            }
+            50% {
+                opacity: 1;
+            }
+        }
+        .fav-card-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 0.03em;
+            color: #d8d8f0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: var(--font-sans);
+        }
+        .fav-card-meta {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            letter-spacing: 0.03em;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .fav-card-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 2px;
+        }
+        .fav-btn-sm {
+            font-size: 0.7rem;
+            padding: 5px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(150, 170, 210, 0.3);
+            background: rgba(20, 24, 38, 0.6);
+            color: #b0b8d0;
+            cursor: pointer;
+            letter-spacing: 0.04em;
+            transition: var(--transition-fast);
+            font-family: var(--font-sans);
+            white-space: nowrap;
+        }
+        .fav-btn-sm:hover {
+            background: rgba(40, 48, 70, 0.7);
+            border-color: rgba(180, 200, 240, 0.5);
+            color: #e0e4f4;
+        }
+        .fav-btn-sm.delete-btn:hover {
+            background: rgba(80, 20, 30, 0.55);
+            border-color: rgba(240, 80, 100, 0.5);
+            color: #ffb0b8;
+        }
+        .no-favorites {
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            padding: 30px 10px;
+            letter-spacing: 0.04em;
+            font-family: var(--font-mono);
+            opacity: 0.6;
+        }
+
+        /* ============ 模态弹窗 ============ */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.65);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            animation: fadeIn 0.25s ease;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        .modal-dialog {
+            background: linear-gradient(160deg, #111830 0%, #0d1225 40%, #0f1630 100%);
+            border: 1.5px solid rgba(140, 180, 230, 0.4);
+            border-radius: var(--radius-lg);
+            padding: 26px 28px;
+            max-width: 420px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(100, 160, 230, 0.2);
+            animation: modalSlideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 1001;
+        }
+        @keyframes modalSlideIn {
+            from {
+                transform: translateY(30px) scale(0.92);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+        .modal-dialog h3 {
+            font-family: var(--font-mono);
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+            color: #d8e0f8;
+            font-size: 1.1rem;
+        }
+        .modal-dialog .modal-subtitle {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            letter-spacing: 0.03em;
+        }
+        .modal-dialog input {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 0.95rem;
+            font-family: var(--font-mono);
+            letter-spacing: 0.03em;
+            background: rgba(8, 12, 24, 0.7);
+            border: 1.5px solid rgba(120, 160, 210, 0.35);
+            border-radius: var(--radius-sm);
+            color: #e0e8f8;
+            outline: none;
+            margin-bottom: 16px;
+            transition: var(--transition-fast);
+        }
+        .modal-dialog input:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 18px rgba(0, 200, 255, 0.15);
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        .modal-buttons .btn {
+            padding: 10px 20px;
+            font-size: 0.85rem;
+            border-radius: 8px;
+        }
+        .btn-confirm {
+            background: linear-gradient(135deg, #1a5f8a, #1b3d6b);
+            color: #d8f0ff;
+            border: 1.5px solid rgba(80, 180, 240, 0.5);
+        }
+        .btn-cancel {
+            background: rgba(30, 34, 50, 0.7);
+            color: #b0b8d0;
+            border: 1.5px solid rgba(120, 140, 180, 0.3);
+        }
+
+        /* ============ Toast 提示 ============ */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: rgba(16, 20, 35, 0.9);
+            border: 1px solid rgba(140, 190, 230, 0.4);
+            border-radius: 30px;
+            padding: 10px 22px;
+            font-size: 0.85rem;
+            letter-spacing: 0.04em;
+            color: #d0d8f0;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            font-family: var(--font-sans);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+            pointer-events: auto;
+        }
+        .toast.success {
+            border-color: rgba(60, 220, 150, 0.5);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(60, 220, 150, 0.2);
+        }
+        .toast.warning {
+            border-color: rgba(240, 160, 50, 0.5);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(240, 160, 50, 0.2);
+        }
+
+        /* ============ 响应式 ============ */
+        @media (max-width: 640px) {
+            .input-section {
+                flex-direction: column;
+                gap: 10px;
+                padding: 14px 16px;
+            }
+            .input-wrapper {
+                max-width: 100%;
+                min-width: auto;
+            }
+            .btn {
+                width: 100%;
+                text-align: center;
+                padding: 13px 18px;
+            }
+            .stats-bar {
+                gap: 8px;
+            }
+            .stat-card {
+                padding: 10px 12px;
+                min-width: 60px;
+            }
+            .stat-value {
+                font-size: 1.2rem;
+            }
+            .favorites-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 8px;
+            }
+            .chart-section {
+                min-height: 280px;
+                padding: 10px 6px 6px;
+            }
+            .chart-section canvas {
+                max-height: 300px;
+            }
+            .header h1 {
+                font-size: 1.4rem;
+            }
+        }
+        @media (max-width: 380px) {
+            .favorites-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 6px;
+            }
+            .fav-card {
+                padding: 10px;
+            }
+            .fav-card-name {
+                font-size: 0.78rem;
+            }
+            .fav-card-meta {
+                font-size: 0.65rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 粒子背景 -->
+    <canvas id="particles-canvas"></canvas>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <!-- 模态弹窗 -->
+    <div class="modal-overlay" id="modalOverlay" style="display:none;">
+        <div class="modal-dialog">
+            <h3>💾 收藏此序列</h3>
+            <p class="modal-subtitle" id="modalSubtitle">为这个克拉茨序列取个名字吧</p>
+            <input type="text" id="modalInput" placeholder="输入收藏名称（可选）" maxlength="40">
+            <div class="modal-buttons">
+                <button class="btn btn-cancel" id="modalCancel">取消</button>
+                <button class="btn btn-confirm" id="modalConfirm">确认收藏</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主容器 -->
+    <div class="main-container">
+        <!-- 标题 -->
+        <div class="header">
+            <span class="logo-icon">🌀</span>
+            <h1>克拉茨猜想</h1>
+            <p class="subtitle">Collatz Conjecture · 3n+1 · 可视化</p>
+        </div>
+
+        <!-- 输入区域 -->
+        <div class="input-section" id="inputSection">
+            <div class="input-wrapper">
+                <input
+                type="number"
+                id="numberInput"
+                placeholder="输入一个正整数"
+                min="1"
+                max="1000000000000"
+                step="1"
+                autocomplete="off"
+                >
+                <span class="input-hint">n ≥ 1</span>
+            </div>
+            <button class="btn btn-generate" id="btnGenerate">
+                <span class="btn-icon">⚡</span>生成曲线
+            </button>
+            <button class="btn btn-favorite" id="btnFavorite" disabled>
+                <span class="btn-icon">★</span>收藏
+            </button>
+        </div>
+
+        <!-- 图表区域 -->
+        <div class="chart-section" id="chartSection">
+            <div class="chart-placeholder" id="chartPlaceholder">
+                <span class="placeholder-icon">📈</span>
+                <span class="placeholder-text">输入数字，探索克拉茨猜想的奥秘</span>
+            </div>
+            <canvas id="collatzChart" style="display:none;"></canvas>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="stats-bar" id="statsBar" style="display:none;">
+            <div class="stat-card">
+                <div class="stat-value" id="statSteps">-</div>
+                <div class="stat-label">总步数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statMax">-</div>
+                <div class="stat-label">峰值</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statStart">-</div>
+                <div class="stat-label">起始数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="statPeakStep">-</div>
+                <div class="stat-label">峰值步</div>
+            </div>
+        </div>
+
+        <!-- 收藏区域 -->
+        <div class="favorites-section" id="favoritesSection">
+            <div class="favorites-header">
+                <span class="favorites-title">
+                    <span class="star-icon">⭐</span>我的收藏
+                </span>
+                <span class="favorites-count" id="favoritesCount">共 0 项</span>
+            </div>
+            <div class="favorites-grid" id="favoritesGrid">
+                <div class="no-favorites">还没有收藏，生成序列后点击 ★ 收藏按钮即可保存</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ============ DOM 引用 ============
+            const particlesCanvas = document.getElementById('particles-canvas');
+            const particlesCtx = particlesCanvas.getContext('2d');
+            const numberInput = document.getElementById('numberInput');
+            const btnGenerate = document.getElementById('btnGenerate');
+            const btnFavorite = document.getElementById('btnFavorite');
+            const chartSection = document.getElementById('chartSection');
+            const chartPlaceholder = document.getElementById('chartPlaceholder');
+            const chartCanvas = document.getElementById('collatzChart');
+            const chartCtx = chartCanvas.getContext('2d');
+            const statsBar = document.getElementById('statsBar');
+            const statSteps = document.getElementById('statSteps');
+            const statMax = document.getElementById('statMax');
+            const statStart = document.getElementById('statStart');
+            const statPeakStep = document.getElementById('statPeakStep');
+            const favoritesGrid = document.getElementById('favoritesGrid');
+            const favoritesCount = document.getElementById('favoritesCount');
+            const modalOverlay = document.getElementById('modalOverlay');
+            const modalInput = document.getElementById('modalInput');
+            const modalSubtitle = document.getElementById('modalSubtitle');
+            const modalCancel = document.getElementById('modalCancel');
+            const modalConfirm = document.getElementById('modalConfirm');
+            const toast = document.getElementById('toast');
+
+            // ============ 状态 ============
+            let collatzChart = null;
+            let currentSequence = null;
+            let currentStartNumber = null;
+            let currentFavId = null; // 当前查看的收藏ID（如果有）
+            let favorites = []; // { id, name, startNumber, createdAt }
+            let pendingSaveData = null; // 待保存的序列数据
+            let toastTimer = null;
+
+            // ============ 粒子系统 ============
+            let particles = [];
+            const PARTICLE_COUNT_BASE = 80;
+            let particleCount = PARTICLE_COUNT_BASE;
+            let animFrameId = null;
+            let mouseX = -999;
+            let mouseY = -999;
+
+            function initParticles() {
+                const area = window.innerWidth * window.innerHeight;
+                particleCount = Math.min(Math.floor(area / 12000), 140);
+                particleCount = Math.max(particleCount, 35);
+                particles = [];
+                for (let i = 0; i < particleCount; i++) {
+                    particles.push({
+                        x: Math.random() * window.innerWidth,
+                        y: Math.random() * window.innerHeight,
+                        vx: (Math.random() - 0.5) * 0.55,
+                        vy: (Math.random() - 0.5) * 0.55,
+                        radius: Math.random() * 1.8 + 0.6,
+                        alpha: Math.random() * 0.55 + 0.25,
+                        pulseSpeed: Math.random() * 0.015 + 0.006,
+                        pulseOffset: Math.random() * Math.PI * 2,
+                    });
+                }
+            }
+
+            function resizeParticlesCanvas() {
+                particlesCanvas.width = window.innerWidth;
+                particlesCanvas.height = window.innerHeight;
+            }
+
+            function animateParticles(timestamp) {
+                particlesCtx.clearRect(0, 0, particlesCanvas.width, particlesCanvas.height);
+
+                for (let i = 0; i < particles.length; i++) {
+                    const p = particles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    // 边界反弹
+                    if (p.x < -30) p.x = particlesCanvas.width + 30;
+                    if (p.x > particlesCanvas.width + 30) p.x = -30;
+                    if (p.y < -30) p.y = particlesCanvas.height + 30;
+                    if (p.y > particlesCanvas.height + 30) p.y = -30;
+
+                    // 脉冲透明度
+                    const pulse = Math.sin(timestamp * p.pulseSpeed + p.pulseOffset) * 0.3 + 0.7;
+                    const alpha = p.alpha * pulse;
+
+                    // 绘制粒子
+                    particlesCtx.beginPath();
+                    particlesCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                    const gradient = particlesCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius * 3);
+                    gradient.addColorStop(0, `rgba(140,190,240,${alpha})`);
+                    gradient.addColorStop(0.5, `rgba(100,150,220,${alpha * 0.5})`);
+                    gradient.addColorStop(1, `rgba(60,100,180,0)`);
+                    particlesCtx.fillStyle = gradient;
+                    particlesCtx.fill();
+                }
+
+                // 绘制连线
+                const maxDist = 130;
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < maxDist) {
+                            const lineAlpha = (1 - dist / maxDist) * 0.28;
+                            particlesCtx.beginPath();
+                            particlesCtx.moveTo(particles[i].x, particles[i].y);
+                            particlesCtx.lineTo(particles[j].x, particles[j].y);
+                            particlesCtx.strokeStyle = `rgba(120,170,220,${lineAlpha})`;
+                            particlesCtx.lineWidth = 0.5;
+                            particlesCtx.stroke();
+                        }
+                    }
+                }
+
+                // 鼠标吸引效果
+                if (mouseX > -500 && mouseY > -500) {
+                    for (let i = 0; i < particles.length; i++) {
+                        const dx = mouseX - particles[i].x;
+                        const dy = mouseY - particles[i].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 200 && dist > 1) {
+                            const force = 0.015;
+                            particles[i].vx += (dx / dist) * force;
+                            particles[i].vy += (dy / dist) * force;
+                            // 阻尼
+                            particles[i].vx *= 0.998;
+                            particles[i].vy *= 0.998;
+                        }
+                    }
+                }
+
+                // 速度限制
+                for (let i = 0; i < particles.length; i++) {
+                    const speed = Math.sqrt(particles[i].vx ** 2 + particles[i].vy ** 2);
+                    if (speed > 1.2) {
+                        particles[i].vx = (particles[i].vx / speed) * 1.2;
+                        particles[i].vy = (particles[i].vy / speed) * 1.2;
+                    }
+                }
+
+                animFrameId = requestAnimationFrame(animateParticles);
+            }
+
+            function onMouseMove(e) {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            }
+
+            function onMouseLeave() {
+                mouseX = -999;
+                mouseY = -999;
+            }
+
+            // ============ Toast ============
+            function showToast(message, type = '') {
+                if (toastTimer) clearTimeout(toastTimer);
+                toast.textContent = message;
+                toast.className = 'toast ' + type + ' show';
+                toastTimer = setTimeout(() => {
+                    toast.classList.remove('show');
+                    toast.className = 'toast';
+                }, 2200);
+            }
+
+            // ============ 模态弹窗 ============
+            function showModal(subtitle, callback) {
+                modalSubtitle.textContent = subtitle;
+                modalInput.value = '';
+                modalOverlay.style.display = 'flex';
+                modalInput.focus();
+                const confirmHandler = () => {
+                    const name = modalInput.value.trim();
+                    callback(name || null);
+                    closeModal();
+                };
+                const cancelHandler = () => {
+                    callback(null);
+                    closeModal();
+                };
+                modalConfirm.onclick = confirmHandler;
+                modalCancel.onclick = cancelHandler;
+                modalInput.onkeydown = (e) => {
+                    if (e.key === 'Enter') confirmHandler();
+                    if (e.key === 'Escape') cancelHandler();
+                };
+                modalOverlay.onclick = (e) => {
+                    if (e.target === modalOverlay) cancelHandler();
+                };
+            }
+
+            function closeModal() {
+                modalOverlay.style.display = 'none';
+                modalConfirm.onclick = null;
+                modalCancel.onclick = null;
+                modalInput.onkeydown = null;
+                modalOverlay.onclick = null;
+            }
+
+            // ============ 克拉茨序列计算 ============
+            function computeCollatzSequence(n) {
+                const MAX_STEPS = 2000;
+                const sequence = [n];
+                let current = n;
+                let steps = 0;
+                while (current !== 1 && steps < MAX_STEPS) {
+                    if (current % 2 === 0) {
+                        current = current / 2;
+                    } else {
+                        // 检查是否会超出安全整数范围
+                        if (current > Number.MAX_SAFE_INTEGER / 3) {
+                            // 接近安全上限，停止计算
+                            sequence.push(null); // 标记截断
+                            break;
+                        }
+                        current = 3 * current + 1;
+                    }
+                    sequence.push(current);
+                    steps++;
+                }
+                return {
+                    sequence,
+                    truncated: steps >= MAX_STEPS && current !== 1,
+                    reachedOne: current === 1,
+                    steps: sequence.length - 1,
+                };
+            }
+
+            function getSequenceStats(sequence) {
+                const validSeq = sequence.filter(v => v !== null);
+                const maxVal = Math.max(...validSeq);
+                const maxIndex = validSeq.indexOf(maxVal);
+                return {
+                    maxValue: maxVal,
+                    maxStep: maxIndex,
+                    startNumber: validSeq[0],
+                    steps: validSeq.length - 1,
+                };
+            }
+
+            // ============ 图表管理 ============
+            function getChartGradient(ctx, chartArea, color1, color2) {
+                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                gradient.addColorStop(0, color1);
+                gradient.addColorStop(0.7, color2);
+                gradient.addColorStop(1, 'rgba(20,30,60,0.02)');
+                return gradient;
+            }
+
+            function getLineColorForIndex(index) {
+                const colors = [
+                    'rgba(0,200,240,0.9)',
+                    'rgba(100,180,255,0.9)',
+                    'rgba(140,120,255,0.9)',
+                    'rgba(200,100,220,0.9)',
+                    'rgba(60,220,180,0.9)',
+                ];
+                return colors[index % colors.length];
+            }
+
+            function getFillColorForIndex(index) {
+                const colors = [
+                    'rgba(0,180,220,0.35)',
+                    'rgba(80,160,240,0.35)',
+                    'rgba(120,100,240,0.35)',
+                    'rgba(180,80,200,0.35)',
+                    'rgba(40,200,160,0.35)',
+                ];
+                return colors[index % colors.length];
+            }
+
+            function renderChart(sequence, favColorIndex = -1) {
+                const validSeq = sequence.filter(v => v !== null);
+                if (validSeq.length === 0) return;
+
+                const stats = getSequenceStats(validSeq);
+                const labels = Array.from({ length: validSeq.length }, (_, i) => i);
+                const colorIdx = favColorIndex >= 0 ? favColorIndex : Math.floor(Math.random() * 5);
+                const lineColor = getLineColorForIndex(colorIdx);
+                const fillColor = getFillColorForIndex(colorIdx);
+
+                // 动态调整点的大小
+                let pointRadius = 3;
+                if (validSeq.length > 500) pointRadius = 0;
+                else if (validSeq.length > 200) pointRadius = 1;
+                else if (validSeq.length > 80) pointRadius = 1.5;
+                else pointRadius = 2.5;
+
+                // 准备点颜色数组（高亮最大值）
+                const pointColors = validSeq.map((v, i) => {
+                    if (v === stats.maxValue && i === stats.maxStep) {
+                        return 'rgba(255,180,40,1)';
+                    }
+                    return lineColor.replace('0.9', '0.7');
+                });
+                const pointRadii = validSeq.map((v, i) => {
+                    if (v === stats.maxValue && i === stats.maxStep) return Math.max(pointRadius + 3, 5);
+                    return pointRadius;
+                });
+                const pointBorderColors = validSeq.map((v, i) => {
+                    if (v === stats.maxValue && i === stats.maxStep) return 'rgba(255,220,80,1)';
+                    return 'rgba(0,0,0,0.3)';
+                });
+
+                if (collatzChart) {
+                    collatzChart.destroy();
+                    collatzChart = null;
+                }
+
+                chartCanvas.style.display = 'block';
+                chartPlaceholder.classList.add('hidden');
+
+                collatzChart = new Chart(chartCtx, {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: `Collatz(${stats.startNumber})`,
+                            data: validSeq,
+                            borderColor: lineColor,
+                            backgroundColor: function(context) {
+                                const chart = context.chart;
+                                const { ctx, chartArea } = chart;
+                                if (!chartArea) return fillColor;
+                                return getChartGradient(ctx, chartArea,
+                                    fillColor.replace('0.35', '0.5'),
+                                    fillColor.replace('0.35', '0.04')
+                                );
+                            },
+                            borderWidth: 1.8,
+                            pointRadius: pointRadii,
+                            pointBackgroundColor: pointColors,
+                            pointBorderColor: pointBorderColors,
+                            pointBorderWidth: 1,
+                            pointHoverRadius: pointRadii.map(r => r + 2),
+                            pointHoverBackgroundColor: pointColors.map(c =>
+                                c.includes('255,180,40') ? 'rgba(255,220,80,1)' : 'rgba(255,255,255,0.9)'
+                            ),
+                            tension: 0.08,
+                            fill: true,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 2.2,
+                        animation: {
+                            duration: 800,
+                            easing: 'easeInOutQuart',
+                        },
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                labels: {
+                                    color: '#b0b8d0',
+                                    font: {
+                                        family: "'SF Mono','Consolas','Monaco',monospace",
+                                        size: 12,
+                                    },
+                                    usePointStyle: true,
+                                    pointStyleWidth: 8,
+                                    padding: 20,
+                                },
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(10,14,28,0.9)',
+                                titleColor: '#d0d8f0',
+                                bodyColor: '#c0c8e0',
+                                borderColor: 'rgba(120,170,220,0.5)',
+                                borderWidth: 1,
+                                padding: 12,
+                                titleFont: {
+                                    family: "'SF Mono','Consolas','Monaco',monospace",
+                                    size: 12,
+                                },
+                                bodyFont: {
+                                    family: "'SF Mono','Consolas','Monaco',monospace",
+                                    size: 11,
+                                },
+                                callbacks: {
+                                    title: function(items) {
+                                        return `步骤: ${items[0].label}`;
+                                    },
+                                    label: function(item) {
+                                        const val = item.raw;
+                                        if (val === stats.maxValue && item.dataIndex === stats.maxStep) {
+                                            return `🔥 峰值: ${val.toLocaleString()}`;
+                                        }
+                                        return `数值: ${val.toLocaleString()}`;
+                                    },
+                                },
+                            },
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: '步数',
+                                    color: '#8a90b0',
+                                    font: {
+                                        family: "'SF Mono','Consolas','Monaco',monospace",
+                                        size: 11,
+                                        letterSpacing: '0.04em',
+                                    },
+                                },
+                                ticks: {
+                                    color: '#6a7090',
+                                    font: {
+                                        family: "'SF Mono','Consolas','Monaco',monospace",
+                                        size: 10,
+                                    },
+                                    maxTicksLimit: 15,
+                                },
+                                grid: {
+                                    color: 'rgba(100,130,180,0.1)',
+                                    drawBorder: false,
+                                },
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: '数值',
+                                    color: '#8a90b0',
+                                    font: {
+                                        family: "'SF Mono','Consolas','Monaco',monospace",
+                                        size: 11,
+                                        letterSpacing: '0.04em',
+                                    },
+                                },
+                                ticks: {
+                                    color: '#6a7090',
+                                    font: {
+                                        family: "'SF Mono','Consolas','Monaco',monospace",
+                                        size: 10,
+                                    },
+                                    maxTicksLimit: 10,
+                                    callback: function(val) {
+                                        if (val >= 1e6) return (val / 1e6).toFixed(1) + 'M';
+                                        if (val >= 1e3) return (val / 1e3).toFixed(1) + 'K';
+                                        return val;
+                                    },
+                                },
+                                grid: {
+                                    color: 'rgba(100,130,180,0.1)',
+                                    drawBorder: false,
+                                },
+                                beginAtZero: false,
+                            },
+                        },
+                    },
+                    plugins: [{
+                        id: 'glowEffect',
+                        afterDraw(chart) {
+                            const ctx = chart.ctx;
+                            const meta = chart.getDatasetMeta(0);
+                            if (!meta || !meta.data || meta.data.length === 0) return;
+                            // 找到最大值点
+                            const maxPoint = meta.data[stats.maxStep];
+                            if (maxPoint && stats.maxValue > 100) {
+                                ctx.save();
+                                ctx.globalAlpha = 0.5;
+                                const glowGrad = ctx.createRadialGradient(
+                                    maxPoint.x, maxPoint.y, 3,
+                                    maxPoint.x, maxPoint.y, 18
+                                );
+                                glowGrad.addColorStop(0, 'rgba(255,200,60,0.7)');
+                                glowGrad.addColorStop(0.5, 'rgba(255,160,30,0.25)');
+                                glowGrad.addColorStop(1, 'rgba(255,120,20,0)');
+                                ctx.fillStyle = glowGrad;
+                                ctx.beginPath();
+                                ctx.arc(maxPoint.x, maxPoint.y, 18, 0, Math.PI * 2);
+                                ctx.fill();
+                                ctx.restore();
+                            }
+                        },
+                    }],
+                });
+
+                // 更新统计信息
+                updateStats(stats);
+                statsBar.style.display = 'flex';
+                btnFavorite.disabled = false;
+            }
+
+            function updateStats(stats) {
+                statSteps.textContent = stats.steps.toLocaleString();
+                statMax.textContent = stats.maxValue.toLocaleString();
+                statStart.textContent = stats.startNumber.toLocaleString();
+                statPeakStep.textContent = stats.maxStep.toLocaleString();
+            }
+
+            function clearChart() {
+                if (collatzChart) {
+                    collatzChart.destroy();
+                    collatzChart = null;
+                }
+                chartCanvas.style.display = 'none';
+                chartPlaceholder.classList.remove('hidden');
+                statsBar.style.display = 'none';
+                btnFavorite.disabled = true;
+                currentSequence = null;
+                currentStartNumber = null;
+                currentFavId = null;
+                updateFavCardsHighlight();
+            }
+
+            // ============ 收藏管理 ============
+            function loadFavorites() {
+                try {
+                    const data = localStorage.getItem('collatz-favorites');
+                    if (data) {
+                        favorites = JSON.parse(data);
+                        if (!Array.isArray(favorites)) favorites = [];
+                    }
+                } catch (e) {
+                    favorites = [];
+                }
+                // 验证数据结构
+                favorites = favorites.filter(f => f && typeof f.id === 'string' && typeof f.startNumber ===
+                    'number');
+            }
+
+            function saveFavorites() {
+                try {
+                    localStorage.setItem('collatz-favorites', JSON.stringify(favorites));
+                } catch (e) {
+                    showToast('存储空间不足，请清理一些收藏', 'warning');
+                }
+            }
+
+            function addFavorite(name, startNumber) {
+                const favName = name || `Collatz(${startNumber})`;
+                const fav = {
+                    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                    name: favName,
+                    startNumber: startNumber,
+                    createdAt: Date.now(),
+                };
+                favorites.unshift(fav);
+                saveFavorites();
+                renderFavorites();
+                showToast('✅ 收藏成功！', 'success');
+                return fav;
+            }
+
+            function deleteFavorite(id) {
+                const index = favorites.findIndex(f => f.id === id);
+                if (index >= 0) {
+                    const removed = favorites.splice(index, 1)[0];
+                    saveFavorites();
+                    renderFavorites();
+                    if (currentFavId === id) {
+                        currentFavId = null;
+                        updateFavCardsHighlight();
+                    }
+                    showToast(`已删除「${removed.name}」`, 'warning');
+                }
+            }
+
+            function getCachedStats(startNumber) {
+                // 快速计算统计信息用于卡片显示
+                const result = computeCollatzSequence(startNumber);
+                if (result.truncated || !result.reachedOne) {
+                    return { steps: result.steps + '+', maxValue: '?', maxStep: '?' };
+                }
+                const stats = getSequenceStats(result.sequence);
+                return stats;
+            }
+
+            function renderFavorites() {
+                favoritesGrid.innerHTML = '';
+                if (favorites.length === 0) {
+                    favoritesGrid.innerHTML =
+                        '<div class="no-favorites">还没有收藏，生成序列后点击 ★ 收藏按钮即可保存</div>';
+                } else {
+                    favorites.forEach(fav => {
+                        const stats = getCachedStats(fav.startNumber);
+                        const card = document.createElement('div');
+                        card.className = 'fav-card';
+                        if (fav.id === currentFavId) {
+                            card.classList.add('active');
+                        }
+                        card.innerHTML = `
+                            <div class="fav-card-name">${escapeHtml(fav.name)}</div>
+                            <div class="fav-card-meta">
+                                <span>n=${fav.startNumber.toLocaleString()}</span>
+                                <span>${stats.steps}步</span>
+                                <span>峰值${typeof stats.maxValue === 'number' ? stats.maxValue.toLocaleString() : stats.maxValue}</span>
+                            </div>
+                            <div class="fav-card-actions">
+                                <button class="fav-btn-sm view-btn" data-id="${fav.id}">📊 查看</button>
+                                <button class="fav-btn-sm delete-btn" data-id="${fav.id}">🗑 删除</button>
+                            </div>
+                        `;
+                        // 点击卡片主体查看
+                        card.addEventListener('click', (e) => {
+                            if (e.target.closest('.delete-btn') || e.target.closest('.view-btn'))
+                                return;
+                            loadFavorite(fav);
+                        });
+                        // 查看按钮
+                        card.querySelector('.view-btn').addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            loadFavorite(fav);
+                        });
+                        // 删除按钮
+                        card.querySelector('.delete-btn').addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            if (confirm(`确定要删除收藏「${fav.name}」吗？`)) {
+                                deleteFavorite(fav.id);
+                            }
+                        });
+                        favoritesGrid.appendChild(card);
+                    });
+                }
+                favoritesCount.textContent = `共 ${favorites.length} 项`;
+            }
+
+            function updateFavCardsHighlight() {
+                const cards = favoritesGrid.querySelectorAll('.fav-card');
+                cards.forEach(card => {
+                    const viewBtn = card.querySelector('.view-btn');
+                    const cardId = viewBtn ? viewBtn.dataset.id : null;
+                    if (cardId === currentFavId) {
+                        card.classList.add('active');
+                    } else {
+                        card.classList.remove('active');
+                    }
+                });
+            }
+
+            function loadFavorite(fav) {
+                numberInput.value = fav.startNumber;
+                currentStartNumber = fav.startNumber;
+                currentFavId = fav.id;
+                const result = computeCollatzSequence(fav.startNumber);
+                if (result.truncated) {
+                    showToast('⚠️ 序列过长已截断（2000步上限）', 'warning');
+                }
+                currentSequence = result.sequence;
+                renderChart(result.sequence, favorites.indexOf(fav) % 5);
+                updateFavCardsHighlight();
+                // 滚动到图表
+                chartSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            function escapeHtml(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            // ============ 事件处理 ============
+            function handleGenerate() {
+                const inputVal = numberInput.value.trim();
+                if (!inputVal) {
+                    showToast('请输入一个正整数', 'warning');
+                    numberInput.focus();
+                    return;
+                }
+                const n = parseInt(inputVal, 10);
+                if (isNaN(n) || n < 1 || !Number.isInteger(Number(inputVal))) {
+                    showToast('请输入有效的正整数（n ≥ 1）', 'warning');
+                    numberInput.focus();
+                    return;
+                }
+                if (n > 1e12) {
+                    showToast('数字过大，请输入 ≤ 10¹² 的正整数', 'warning');
+                    numberInput.focus();
+                    return;
+                }
+
+                currentStartNumber = n;
+                currentFavId = null;
+                updateFavCardsHighlight();
+
+                const result = computeCollatzSequence(n);
+                if (result.truncated) {
+                    showToast('⚠️ 序列过长已截断（2000步上限）', 'warning');
+                }
+                currentSequence = result.sequence;
+                renderChart(result.sequence);
+                chartSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                btnFavorite.disabled = false;
+            }
+
+            function handleFavorite() {
+                if (!currentSequence || !currentStartNumber) {
+                    showToast('请先生成序列', 'warning');
+                    return;
+                }
+                const defaultName = `Collatz(${currentStartNumber})`;
+                const stats = getSequenceStats(currentSequence.filter(v => v !== null));
+                const subtitle = `n=${currentStartNumber.toLocaleString()} · ${stats.steps}步 · 峰值${stats.maxValue.toLocaleString()}`;
+                showModal(subtitle, (name) => {
+                    if (name === null) return; // 用户取消
+                    const fav = addFavorite(name || defaultName, currentStartNumber);
+                    currentFavId = fav.id;
+                    updateFavCardsHighlight();
+                });
+                modalInput.value = defaultName;
+                modalInput.select();
+            }
+
+            btnGenerate.addEventListener('click', handleGenerate);
+            btnFavorite.addEventListener('click', handleFavorite);
+            numberInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleGenerate();
+                }
+            });
+
+            // ============ 键盘快捷键 ============
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeModal();
+                }
+                // Ctrl+Enter 快速收藏
+                if (e.ctrlKey && e.key === 'Enter' && !btnFavorite.disabled) {
+                    e.preventDefault();
+                    handleFavorite();
+                }
+            });
+
+            // ============ 初始化 ============
+            function init() {
+                resizeParticlesCanvas();
+                initParticles();
+                animFrameId = requestAnimationFrame(animateParticles);
+                loadFavorites();
+                renderFavorites();
+                // 默认展示数字27的序列
+                numberInput.value = '27';
+                handleGenerate();
+            }
+
+            // ============ 窗口事件 ============
+            window.addEventListener('resize', () => {
+                resizeParticlesCanvas();
+                initParticles();
+            });
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseleave', onMouseLeave);
+            window.addEventListener('touchmove', (e) => {
+                if (e.touches.length > 0) {
+                    mouseX = e.touches[0].clientX;
+                    mouseY = e.touches[0].clientY;
+                }
+            }, { passive: true });
+            window.addEventListener('touchend', () => {
+                mouseX = -999;
+                mouseY = -999;
+            });
+
+            // ============ 启动 ============
+            init();
+
+            // ============ 清理（SPA场景） ============
+            // 此应用为独立页面，无需额外清理逻辑
+            console.log('%c🌀 克拉茨猜想可视化已就绪 %c| %cCollatz Conjecture Visualizer',
+                'color:#7dd3fc;font-size:1.1em;',
+                '',
+                'color:#b98df7;');
+            console.log('%c💡 提示：输入正整数生成序列 | ★ 收藏 | Ctrl+Enter 快速收藏',
+                'color:#a0a8c0;font-size:0.85em;');
+        })();
+    </script>
+</body>
+</html>
