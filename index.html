@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>克拉茨猜想 · Collatz Conjecture 可视化</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
-    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
             --bg-deep: #06080f;
@@ -151,6 +150,13 @@
             transition: var(--transition-fast);
             caret-color: var(--accent-cyan);
             box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
+            /* 隐藏原生数字调节按钮 */
+            -moz-appearance: textfield;
+        }
+        .input-wrapper input::-webkit-outer-spin-button,
+        .input-wrapper input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
         }
         .input-wrapper input::placeholder {
             color: var(--text-dim);
@@ -171,41 +177,9 @@
             font-family: var(--font-mono);
             pointer-events: none;
             letter-spacing: 0.04em;
-        }
-
-        /* 新增：动画时长输入组 */
-        .duration-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            min-width: 150px;
-        }
-        .duration-wrapper label {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            letter-spacing: 0.04em;
-            white-space: nowrap;
-        }
-        .duration-wrapper input {
-            width: 70px;
-            padding: 10px 12px;
-            font-family: var(--font-mono);
-            font-size: 0.9rem;
-            background: rgba(8, 10, 20, 0.7);
-            border: 1.5px solid rgba(120, 160, 210, 0.35);
-            border-radius: var(--radius-sm);
-            color: #e0e8f8;
-            outline: none;
-            text-align: center;
-            transition: var(--transition-fast);
-        }
-        .duration-wrapper input:focus {
-            border-color: var(--accent-cyan);
-            box-shadow: 0 0 18px rgba(0, 200, 255, 0.15);
-        }
-        .duration-wrapper .unit {
-            font-size: 0.7rem;
-            color: var(--text-dim);
+            background: rgba(8, 10, 20, 0.5);
+            padding: 2px 5px;
+            border-radius: 4px;
         }
 
         .btn {
@@ -385,7 +359,7 @@
 
         @media (max-width: 640px) {
             .input-section { flex-direction: column; gap: 10px; padding: 14px 16px; }
-            .input-wrapper, .duration-wrapper { max-width: 100%; min-width: auto; width: 100%; }
+            .input-wrapper { max-width: 100%; min-width: auto; }
             .btn { width: 100%; text-align: center; padding: 13px 18px; }
             .stats-bar { gap: 8px; }
             .stat-card { padding: 10px 12px; min-width: 60px; }
@@ -429,12 +403,6 @@
             <div class="input-wrapper">
                 <input type="number" id="numberInput" placeholder="输入一个正整数" min="1" max="1000000000000" step="1" autocomplete="off">
                 <span class="input-hint">n ≥ 1</span>
-            </div>
-            <!-- 新增：动画时长设置 -->
-            <div class="duration-wrapper">
-                <label for="durationInput">⏱️ 动画</label>
-                <input type="number" id="durationInput" value="10" min="1" max="60" step="0.5">
-                <span class="unit">秒</span>
             </div>
             <button class="btn btn-generate" id="btnGenerate">
                 <span class="btn-icon">⚡</span>生成曲线
@@ -490,7 +458,6 @@
             const particlesCanvas = document.getElementById('particles-canvas');
             const particlesCtx = particlesCanvas.getContext('2d');
             const numberInput = document.getElementById('numberInput');
-            const durationInput = document.getElementById('durationInput'); // 新增：时长输入框
             const btnGenerate = document.getElementById('btnGenerate');
             const btnFavorite = document.getElementById('btnFavorite');
             const chartPlaceholder = document.getElementById('chartPlaceholder');
@@ -520,7 +487,7 @@
             let animFrameId = null;
             let animCancelFlag = false;
 
-            // 粒子系统 (保持不变)
+            // 粒子系统
             let particles = [];
             const PARTICLE_COUNT_BASE = 80;
             let particleCount = PARTICLE_COUNT_BASE;
@@ -692,11 +659,9 @@
                 return 1 - Math.pow(1 - t, 3);
             }
 
-            // 获取用户设置的动画时长（秒），返回毫秒数，默认10秒
-            function getAnimationDuration() {
-                let seconds = parseFloat(durationInput.value);
-                if (isNaN(seconds) || seconds < 1) seconds = 10; // 默认10秒
-                if (seconds > 60) seconds = 60;
+            // 根据有效点数动态计算动画时长（毫秒）：每个点0.2秒，上限10秒
+            function getAnimationDuration(totalPoints) {
+                const seconds = Math.min(totalPoints * 0.2, 10);
                 return seconds * 1000;
             }
 
@@ -821,10 +786,10 @@
                 statsBar.style.display = 'flex';
                 btnFavorite.disabled = false;
 
-                // 启动动画，使用用户设定的时长
+                // 启动自动动画
                 animCancelFlag = false;
                 const startTime = performance.now();
-                const duration = getAnimationDuration(); // 关键修改：从输入框获取动画时长（毫秒）
+                const duration = getAnimationDuration(totalLength);
 
                 function animateStep(now) {
                     if (animCancelFlag) {
@@ -1032,7 +997,6 @@
                 return div.innerHTML;
             }
 
-            // 事件处理
             function handleGenerate() {
                 const inputVal = numberInput.value.trim();
                 if (!inputVal) { showToast('请输入一个正整数', 'warning'); numberInput.focus(); return; }
@@ -1073,8 +1037,6 @@
             btnGenerate.addEventListener('click', handleGenerate);
             btnFavorite.addEventListener('click', handleFavorite);
             numberInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleGenerate(); } });
-            // 时长输入框也可以支持回车生成
-            durationInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleGenerate(); } });
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') closeModal();
                 if (e.ctrlKey && e.key === 'Enter' && !btnFavorite.disabled) { e.preventDefault(); handleFavorite(); }
@@ -1088,8 +1050,6 @@
                 loadFavorites();
                 renderFavorites();
                 numberInput.value = '27';
-                // 确保时长输入框显示默认值10
-                durationInput.value = '10';
                 handleGenerate();
             }
 
